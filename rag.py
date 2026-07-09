@@ -1,7 +1,9 @@
-import os, json, math
+import os
+import chromadb
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,69 +12,71 @@ get_emb = lambda t: client.models.embed_content(model="gemini-embedding-2", cont
 
 app = FastAPI(title="Gemini RAG API Service")
 
+chroma_client = chromadb.PersistentClient(path="./chroma_data")
+collection = chroma_client.get_or_create_collection(name="rag_documents")
+
 class QueryModel(BaseModel):
-    question: str
+    question: str = Field(..., min_length=2, max_length=500, description="The query string to search in the documents")
 
-def cosine_similarity(v1, v2):
-    return sum(a*b for a,b in zip(v1, v2)) / (math.sqrt(sum(a*a for a in v1)) * math.sqrt(sum(b*b for b in v2)))
+class StructuredRAGResponse(BaseModel):
+    answer: str = Field(..., description="The main answer grounded strictly in the provided document context")
+    summary_sentence: str = Field(..., description="A single-sentence concise summary of the main answer")
+    confidence_score: str = Field(..., description="The confidence level of finding the answer within the docs: High, Medium, or Low")
 
-def build_vector_db():
-    json_db = []
+def sync_chroma_db():
+    if collection.count() > 0:
+        return True
     if not os.path.exists("data"):
         return False
+    documents = []
+    embeddings = []
+    ids = []
+    metadatas = []
+    id_counter = 0
     for file_name in os.listdir("data"):
         if file_name.endswith(".txt"):
             with open(f"data/{file_name}", "r", encoding="utf-8") as f:
                 chunks = [p.strip() for p in f.read().split("\n\n") if p.strip()]
                 for chunk in chunks:
-                    json_db.append({
-                        "file_name": file_name,
-                        "chunk_text": chunk,
-                        "embedding": get_emb(chunk)
-                    })
-    with open("vector_db.json", "w", encoding="utf-8") as f:
-        json.dump(json_db, f, ensure_ascii=False, indent=4)
+                    documents.append(chunk)
+                    embeddings.append(get_emb(chunk))
+                    ids.append(f"doc_{id_counter}")
+                    metadatas.append({"file_name": file_name})
+                    id_counter += 1
+    if documents:
+        collection.add(
+            documents=documents,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            ids=ids
+        )
     return True
 
-def is_db_outdated():
-    if not os.path.exists("vector_db.json"):
-        return True
-    db_mtime = os.path.getmtime("vector_db.json")
-    for file_name in os.listdir("data"):
-        if file_name.endswith(".txt"):
-            file_path = os.path.join("data", file_name)
-            if os.path.getmtime(file_path) > db_mtime:
-                return True
-    return False
-
-def retrieve_relevant_chunks(query, top_k=3):
-    with open("vector_db.json", "r", encoding="utf-8") as f:
-        json_db = json.load(f)
-    query_emb = get_emb(query)
-    scored_chunks = []
-    for item in json_db:
-        score = cosine_similarity(query_emb, item["embedding"])
-        scored_chunks.append((score, item))
-    scored_chunks.sort(key=lambda x: x[0], reverse=True)
-    return scored_chunks[:top_k]
-
-@app.post("/ask")
+@app.post("/ask", response_model=StructuredRAGResponse)
 def ask_question(data: QueryModel):
-    if is_db_outdated():
-        if not build_vector_db():
-            raise HTTPException(status_code=404, detail="'data' folder not found!")
-            
+    if not sync_chroma_db():
+        raise HTTPException(status_code=404, detail="'data' folder not found!")
+    if collection.count() == 0:
+        raise HTTPException(status_code=404, detail="No documents found in the database.")
+        
     user_query = data.question
-    best_matches = retrieve_relevant_chunks(user_query, top_k=3)
+    query_vector = get_emb(user_query)
+    
+    results = collection.query(
+        query_embeddings=[query_vector],
+        n_results=3
+    )
+    
+    retrieved_chunks = results["documents"][0]
+    retrieved_metadatas = results["metadatas"][0]
     
     context = ""
-    sources = set()
-    for score, item in best_matches:
-        context += f"--- Document Source ({item['file_name']}) ---\n{item['chunk_text']}\n\n"
-        sources.add(item['file_name'])
+    for chunk, meta in zip(retrieved_chunks, retrieved_metadatas):
+        context += f"--- Document Source ({meta['file_name']}) ---\n{chunk}\n\n"
         
     prompt = f"""Answer the following question based ONLY on the provided context.
-If the answer is not in the context, say "I don't know based on the documents". Do not make up information.
+If the answer is not in the context, set the answer field to "I don't know based on the documents. 
+Answer same language as question".
 
 CONTEXT:
 {context}
@@ -80,12 +84,17 @@ CONTEXT:
 QUESTION:
 {user_query}
 """
+
     try:
-        response = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
-        return {
-            "question": user_query,
-            "answer": response.text,
-            "sources_used": list(sources)
-        }
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-lite",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=StructuredRAGResponse,
+            ),
+        )
+        import json as json_parser
+        return json_parser.loads(response.text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
