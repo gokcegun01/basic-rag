@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from docling.document_converter import DocumentConverter
 
 load_dotenv()
 client = genai.Client(api_key=os.getenv("API_KEY"))
 get_emb = lambda t: client.models.embed_content(model="gemini-embedding-2", contents=t).embeddings[0].values
 
 app = FastAPI(title="Gemini RAG API Service")
+doc_converter = DocumentConverter()
 
 chroma_client = chromadb.PersistentClient(path="./chroma_data")
 collection = chroma_client.get_or_create_collection(name="rag_documents")
@@ -28,21 +30,38 @@ def sync_chroma_db():
         return True
     if not os.path.exists("data"):
         return False
+        
     documents = []
     embeddings = []
     ids = []
     metadatas = []
     id_counter = 0
+    
     for file_name in os.listdir("data"):
+        file_path = f"data/{file_name}"
+        raw_chunks = []
+        
         if file_name.endswith(".txt"):
-            with open(f"data/{file_name}", "r", encoding="utf-8") as f:
-                chunks = [p.strip() for p in f.read().split("\n\n") if p.strip()]
-                for chunk in chunks:
-                    documents.append(chunk)
-                    embeddings.append(get_emb(chunk))
-                    ids.append(f"doc_{id_counter}")
-                    metadatas.append({"file_name": file_name})
-                    id_counter += 1
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_chunks = [p.strip() for p in f.read().split("\n\n") if p.strip()]
+                
+        elif file_name.endswith(".pdf"):
+            conversion_result = doc_converter.convert(file_path)
+            markdown_text = conversion_result.document.export_to_markdown()
+            raw_chunks = [p.strip() for p in markdown_text.split("\n\n") if p.strip()]
+            
+        chunks = []
+        for k in range(0, len(raw_chunks), 4):
+            grouped_chunk = "\n\n".join(raw_chunks[k : k + 4])
+            chunks.append(grouped_chunk)
+            
+        for chunk in chunks:
+            documents.append(chunk)
+            embeddings.append(get_emb(chunk)) 
+            ids.append(f"doc_{id_counter}")
+            metadatas.append({"file_name": file_name})
+            id_counter += 1
+            
     if documents:
         collection.add(
             documents=documents,
