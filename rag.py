@@ -1,6 +1,9 @@
 import os
+import shutil
+import json as json_parser
 import chromadb
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
@@ -17,6 +20,7 @@ doc_converter = DocumentConverter()
 chroma_client = chromadb.PersistentClient(path="./chroma_data")
 collection = chroma_client.get_or_create_collection(name="rag_documents")
 
+# --- Pydantic Data Models ---
 class QueryModel(BaseModel):
     question: str = Field(..., min_length=2, max_length=500, description="The query string to search in the documents")
 
@@ -25,6 +29,11 @@ class StructuredRAGResponse(BaseModel):
     summary_sentence: str = Field(..., description="A single-sentence concise summary of the main answer")
     confidence_score: str = Field(..., description="The confidence level of finding the answer within the docs: High, Medium, or Low")
 
+class FinalAPIResponse(StructuredRAGResponse):
+    source: str = Field(..., description="The filename of the document where the answer was found")
+
+
+# --- Core RAG Logic ---
 def sync_chroma_db():
     if collection.count() > 0:
         return True
@@ -71,7 +80,41 @@ def sync_chroma_db():
         )
     return True
 
-@app.post("/ask", response_model=StructuredRAGResponse)
+
+# --- API Endpoints ---
+
+# 1. Web Arayüzünü Servis Et (index.html dosyasını okur)
+@app.get("/", response_class=HTMLResponse)
+def read_root():
+    if not os.path.exists("index.html"):
+        raise HTTPException(status_code=404, detail="index.html file not found in root directory!")
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+# 2. PDF/TXT Dosyası Yükleme Arayüzü
+@app.post("/upload")
+def upload_file(file: UploadFile = File(...)):
+    if not os.path.exists("data"):
+        os.makedirs("data")
+        
+    file_path = f"data/{file.filename}"
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    global collection
+    try:
+        chroma_client.delete_collection(name="rag_documents")
+    except Exception:
+        pass
+    collection = chroma_client.get_or_create_collection(name="rag_documents")
+    
+    sync_chroma_db()
+    
+    return {"message": f"'{file.filename}' processed and indexed successfully!"}
+
+# 3. Soru Sorma Arayüzü (Geliştirilmiş & Kaynak Destekli)
+@app.post("/ask", response_model=FinalAPIResponse)
 def ask_question(data: QueryModel):
     if not sync_chroma_db():
         raise HTTPException(status_code=404, detail="'data' folder not found!")
@@ -113,7 +156,12 @@ QUESTION:
                 response_schema=StructuredRAGResponse,
             ),
         )
-        import json as json_parser
-        return json_parser.loads(response.text)
+        
+        source_file = retrieved_metadatas[0]['file_name'] if retrieved_metadatas else "Unknown Source"
+        
+        response_dict = json_parser.loads(response.text)
+        response_dict["source"] = source_file
+        
+        return response_dict
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

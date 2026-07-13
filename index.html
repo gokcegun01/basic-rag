@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI PDF Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Sohbet kutusu için tatlı bir scrollbar tasarımı */
+        #chatBox::-webkit-scrollbar { width: 6px; }
+        #chatBox::-webkit-scrollbar-track { background: transparent; }
+        #chatBox::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        #chatBox::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-rose-50 via-purple-50 to-indigo-50 min-h-screen font-sans text-slate-700 antialiased flex items-center justify-center p-4">
+
+    <div class="w-full max-w-3xl bg-white/80 backdrop-blur-md rounded-3xl shadow-xl shadow-purple-100/40 border border-purple-100/50 p-6 md:p-8 flex flex-col gap-6">
+        
+        <div class="flex items-center justify-between border-b border-purple-100 pb-4">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 bg-gradient-to-tr from-pink-400 to-purple-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-md shadow-purple-200">
+                    ✨
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">AI PDF Assistant</h1>
+                </div>
+            </div>
+            <div class="text-xs bg-purple-50 text-purple-600 px-3 py-1.5 rounded-full font-semibold border border-purple-100">
+                v1.0.0
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-2xl border border-purple-100/60 p-4 transition-all hover:shadow-inner">
+            <h2 class="text-xs font-bold text-purple-700 tracking-wider uppercase mb-2.5 flex items-center gap-1.5">
+                <span>📥</span> Upload Document
+            </h2>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <input type="file" id="pdfFile" accept=".pdf,.txt" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gradient-to-r file:from-purple-500 file:to-pink-500 file:text-white hover:opacity-90 transition shadow-sm cursor-pointer"/>
+                <button onclick="uploadPDF()" id="uploadBtn" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-md hover:shadow-lg active:scale-95 cursor-pointer whitespace-nowrap">
+                    Upload & Index
+                </button>
+            </div>
+            <p id="uploadStatus" class="text-xs mt-2 font-medium px-1"></p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5 px-1">
+                <span>💬</span> Chat History
+            </h2>
+            
+            <div id="chatBox" class="border border-purple-50/80 rounded-2xl p-4 h-96 overflow-y-auto bg-slate-50/40 space-y-4 flex flex-col">
+                <div class="bg-white text-slate-600 self-start p-3.5 rounded-2xl rounded-tl-none text-sm max-w-[85%] shadow-sm border border-purple-50 leading-relaxed">
+                    Hello! 🍧 Please upload a document above, then feel free to ask me anything about it. I'm ready!
+                </div>
+            </div>
+
+            <div class="flex gap-2.5 mt-2">
+                <input type="text" id="questionInput" placeholder="Ask a cozy question..." class="flex-1 border border-purple-100 rounded-2xl px-5 py-3.5 text-sm bg-white/90 focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-transparent transition placeholder-slate-400 shadow-sm"/>
+                <button onclick="askQuestion()" id="sendBtn" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-95 text-white px-6 py-3.5 rounded-2xl text-sm font-bold transition shadow-md shadow-purple-200/50 active:scale-95 cursor-pointer">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function uploadPDF() {
+            const fileInput = document.getElementById('pdfFile');
+            const statusText = document.getElementById('uploadStatus');
+            const btn = document.getElementById('uploadBtn');
+
+            if (!fileInput.files[0]) {
+                alert("Please select a file first! ✨");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            statusText.innerText = "⏳ Reading document... grab a coffee!";
+            statusText.className = "text-xs mt-2 text-amber-500 font-semibold animate-pulse";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await response.json();
+                statusText.innerText = "🌸 " + data.message;
+                statusText.className = "text-xs mt-2 text-emerald-500 font-semibold";
+            } catch (error) {
+                statusText.innerText = "❌ Something went wrong during processing.";
+                statusText.className = "text-xs mt-2 text-rose-500 font-semibold";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('questionInput');
+            const chatBox = document.getElementById('chatBox');
+            const btn = document.getElementById('sendBtn');
+            const question = input.value.trim();
+
+            if (!question) return;
+
+            // User Message (Tatlı pofuduk pembe/mor balon)
+            chatBox.innerHTML += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white self-end p-3.5 rounded-2xl rounded-tr-none text-sm max-w-[80%] shadow-sm font-medium">${question}</div>`;
+            input.value = "";
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question })
+                });
+                
+                const data = await response.json();
+
+                // Bot Response (Temiz, kurumsal ama şık detay kartı)
+                chatBox.innerHTML += `
+                    <div class="bg-white text-slate-700 self-start p-4 rounded-2xl rounded-tl-none text-sm max-w-[85%] space-y-3 shadow-sm border border-purple-50 leading-relaxed">
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-purple-600 border-b border-purple-50 pb-1.5">
+                            <span>🤖</span> Answer
+                        </div>
+                        <p class="text-slate-600 font-medium">${data.answer}</p>
+                        <div class="pt-2 border-t border-dashed border-slate-100 space-y-1.5 text-xs text-slate-400">
+                            <p class="italic text-slate-400/90">📌 <span class="font-semibold text-purple-400">Summary:</span> ${data.summary_sentence}</p>
+                            <div class="flex flex-wrap items-center gap-2 pt-1">
+                                <span class="bg-purple-50 text-purple-600 px-2 py-0.5 rounded-md font-mono text-[11px] border border-purple-100/50">📄 ${data.source}</span>
+                                <span class="bg-rose-50 text-pink-600 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-rose-100/50">🎯 Confidence: ${data.confidence_score}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                chatBox.innerHTML += `<div class="bg-rose-50 text-rose-600 self-start p-3.5 rounded-2xl rounded-tl-none text-sm border border-rose-100">❌ Oop, server didn't reply. Please try again!</div>`;
+            } finally {
+                btn.disabled = false;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        document.getElementById('questionInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') askQuestion();
+        });
+    </script>
+</body>
+</html>
