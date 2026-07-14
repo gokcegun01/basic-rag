@@ -83,7 +83,7 @@ def sync_chroma_db():
 
 # --- API Endpoints ---
 
-# 1. Web Arayüzünü Servis Et (index.html dosyasını okur)
+# 1. Web Arayüzünü Servis Et
 @app.get("/", response_class=HTMLResponse)
 def read_root():
     if not os.path.exists("index.html"):
@@ -91,7 +91,15 @@ def read_root():
     with open("index.html", "r", encoding="utf-8") as f:
         return f.read()
 
-# 2. PDF/TXT Dosyası Yükleme Arayüzü
+# 2. Yüklenen Dosyaları Listeleme Endpoint'i
+@app.get("/files")
+def list_files():
+    if not os.path.exists("data"):
+        return []
+    # Gizli dosyaları (.DS_Store gibi) filtreleyip sadece gerçek dosyaları döner
+    return [f for f in os.listdir("data") if os.path.isfile(os.path.join("data", f)) and not f.startswith(".")]
+
+# 3. PDF/TXT Dosyası Yükleme
 @app.post("/upload")
 def upload_file(file: UploadFile = File(...)):
     if not os.path.exists("data"):
@@ -113,7 +121,7 @@ def upload_file(file: UploadFile = File(...)):
     
     return {"message": f"'{file.filename}' processed and indexed successfully!"}
 
-# 3. Soru Sorma Arayüzü (Geliştirilmiş & Kaynak Destekli)
+# 4. Soru Sorma
 @app.post("/ask", response_model=FinalAPIResponse)
 def ask_question(data: QueryModel):
     if not sync_chroma_db():
