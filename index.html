@@ -16,7 +16,6 @@
 
     <div class="w-full max-w-3xl bg-white/80 backdrop-blur-md rounded-3xl shadow-xl shadow-purple-100/40 border border-purple-100/50 p-6 md:p-8 h-[86vh] flex flex-col justify-between">
         
-        <!-- Header -->
         <div class="shrink-0 border-b border-purple-100 pb-4 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
                 <div class="w-10 h-10 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-md shadow-purple-200">
@@ -28,44 +27,30 @@
                 </div>
             </div>
             <div class="text-xs bg-purple-50 text-purple-600 px-3 py-1.5 rounded-full font-semibold border border-purple-100">
-                v1.2.4 (Active Agent)
+                v1.2.3 (Unified Agent)
             </div>
         </div>
 
-        <!-- Chat Window Area -->
         <div id="chatBox" class="flex-1 my-4 overflow-y-auto p-2 space-y-4 flex flex-col">
             <div class="bg-white text-slate-600 self-start p-3.5 rounded-2xl rounded-tl-none text-sm max-w-[85%] shadow-sm border border-purple-50 leading-relaxed">
                 Hello! 🌟 I am <strong>OmniAssist AI</strong>. <br><br>
-                Please select your operation mode below and let's get started!<br><br>
-                * <strong>RAG Mode:</strong> Upload PDFs to chat with your files. If not found, I'll search the web.<br>
-                * <strong>Agent Tools Mode:</strong> Test active system tools! Try asking:<br>
+                How can I assist you today? You can completely interact with all services in one place:<br><br>
+                * <strong>Document Intelligence:</strong> Upload PDFs to analyze and query data dynamically.<br>
+                * <strong>Enterprise Operations:</strong> Use active system tools seamlessly. Try asking:<br>
                 &nbsp;&nbsp;• <em>"Sistemdeki PDF dosyalarının listesini döner misin?"</em><br>
                 &nbsp;&nbsp;• <em>"Veritabanından user_101 profilini sorgular mısın?"</em><br>
                 &nbsp;&nbsp;• <em>"OKAN20 kuponu geçerli mi?"</em>
             </div>
         </div>
 
-        <!-- Bottom Controls Area -->
         <div class="flex flex-col gap-3 shrink-0">
             
-            <!-- 🛠️ Mode Selector Pills & Clear Chat Button -->
-            <div class="flex items-center justify-between px-1">
-                <div class="flex gap-2">
-                    <button id="modeBtn-rag" onclick="setChatMode('rag')" class="px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer bg-purple-600 text-white border border-purple-600">
-                        📄 Document Chat (RAG)
-                    </button>
-                    <button id="modeBtn-coupon" onclick="setChatMode('coupon')" class="px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer bg-slate-100 text-slate-500 hover:bg-purple-50 border border-transparent">
-                        🛠️ Agent Tools (Ajan Modu)
-                    </button>
-                </div>
-                
-                <!-- 🧹 Sohbeti Temizleme Butonu -->
+            <div class="flex items-center justify-end px-1">
                 <button onclick="clearChat()" class="text-[11px] font-semibold text-rose-500 hover:text-rose-700 transition-all duration-200 flex items-center gap-1 cursor-pointer bg-rose-50 hover:bg-rose-100/70 px-3 py-1.5 rounded-full border border-rose-100" title="Clear Conversation">
                     🗑️ Clear
                 </button>
             </div>
 
-            <!-- Status & Collapsible PDF List (Yalnızca RAG modunda görünür) -->
             <div class="px-2 flex flex-col gap-1.5">
                 <p id="uploadStatus" class="text-xs font-semibold text-amber-500 transition-all"></p>
                 
@@ -74,25 +59,21 @@
                         📂 Indexed PDFs (<span id="filesCount">0</span>) <span class="transition-transform duration-200 group-open:rotate-180 text-[8px]">▼</span>
                     </summary>
                     <div id="filesList" class="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                        <!-- PDF dosyaları burada listelenecek -->
                     </div>
                 </details>
             </div>
 
-            <!-- Unified Chat Bar -->
             <div class="flex items-center gap-2 bg-white/90 border border-purple-100 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-purple-300 transition shadow-sm">
                 
                 <input type="file" id="pdfFile" accept=".pdf" class="hidden" onchange="autoUploadPDF()"/>
                 
-                <!-- Paperclip Icon -->
                 <label id="uploadIcon" for="pdfFile" class="p-2 text-slate-400 hover:text-purple-600 rounded-xl hover:bg-purple-50 transition cursor-pointer shrink-0" title="Attach PDF document">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636L9.172 14.828a4 4 0 11-5.656-5.656l9.192-9.192a6 6 0 128.486 8.486L11.996 17.66a2.5 2.5 0 11-3.536-3.536l6.594-6.593" />
                     </svg>
                 </label>
 
-                <!-- Input field -->
-                <input type="text" id="questionInput" placeholder="Ask anything about your PDF documents..." class="flex-1 bg-transparent border-0 outline-none text-sm px-2 py-2 text-slate-700 placeholder-slate-400"/>
+                <input type="text" id="questionInput" placeholder="" class="flex-1 bg-transparent border-0 outline-none text-sm px-2 py-2 text-slate-700"/>
                 
                 <button onclick="askQuestion()" id="sendBtn" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-95 text-white p-2.5 rounded-xl transition shadow-md shadow-purple-200/50 active:scale-95 cursor-pointer shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
@@ -106,46 +87,23 @@
     <script>
         window.addEventListener('DOMContentLoaded', fetchFiles);
 
-        let activeMode = "rag"; 
+        let chatHistory = [];
+        const activeUserId = "user_101";
 
-        // Sohbeti Temizleme Fonksiyonu
         function clearChat() {
+            chatHistory = [];
             const chatBox = document.getElementById('chatBox');
             chatBox.innerHTML = `
                 <div class="bg-white text-slate-600 self-start p-3.5 rounded-2xl rounded-tl-none text-sm max-w-[85%] shadow-sm border border-purple-50 leading-relaxed">
                     Hello! 🌟 I am <strong>OmniAssist AI</strong>. <br><br>
-                    Please select your operation mode below and let's get started!<br><br>
-                    * <strong>RAG Mode:</strong> Upload PDFs to chat with your files. If not found, I'll search the web.<br>
-                    * <strong>Agent Tools Mode:</strong> Test active system tools! Try asking:<br>
+                    How can I assist you today? You can completely interact with all services in one place:<br><br>
+                    * <strong>Document Intelligence:</strong> Upload PDFs to analyze and query data dynamically.<br>
+                    * <strong>Enterprise Operations:</strong> Use active system tools seamlessly. Try asking:<br>
                     &nbsp;&nbsp;• <em>"Sistemdeki PDF dosyalarının listesini döner misin?"</em><br>
                     &nbsp;&nbsp;• <em>"Veritabanından user_101 profilini sorgular mısın?"</em><br>
                     &nbsp;&nbsp;• <em>"OKAN20 kuponu geçerli mi?"</em>
                 </div>
             `;
-        }
-
-        // Mod Değiştirme Fonksiyonu
-        function setChatMode(mode) {
-            activeMode = mode;
-            const ragBtn = document.getElementById('modeBtn-rag');
-            const couponBtn = document.getElementById('modeBtn-coupon');
-            const uploadIcon = document.getElementById('uploadIcon');
-            const input = document.getElementById('questionInput');
-            const section = document.getElementById('indexedFilesSection');
-
-            if (mode === 'rag') {
-                ragBtn.className = "px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer bg-purple-600 text-white border border-purple-600";
-                couponBtn.className = "px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer bg-slate-100 text-slate-500 hover:bg-purple-50 border border-transparent";
-                uploadIcon.style.display = "block"; 
-                input.placeholder = "Ask anything about your PDF documents...";
-                fetchFiles();
-            } else {
-                couponBtn.className = "px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer bg-purple-600 text-white border border-purple-600";
-                ragBtn.className = "px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-sm transition-all cursor-pointer bg-slate-100 text-slate-500 hover:bg-purple-50 border border-transparent";
-                uploadIcon.style.display = "none"; 
-                input.placeholder = "Query database, check coupons, or list PDFs...";
-                section.classList.add('hidden');
-            }
         }
 
         async function fetchFiles() {
@@ -165,10 +123,7 @@
                             <span class="truncate font-mono text-[10px]">${file}</span>
                         </div>
                     `).join('');
-                    
-                    if (activeMode === 'rag') {
-                        section.classList.remove('hidden');
-                    }
+                    section.classList.remove('hidden');
                 } else {
                     section.classList.add('hidden');
                 }
@@ -218,8 +173,7 @@
 
             if (!question) return;
 
-            const modeIcon = activeMode === 'rag' ? '📄' : '🤖';
-            chatBox.innerHTML += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white self-end p-3.5 rounded-2xl rounded-tl-none text-sm max-w-[80%] shadow-sm font-medium"><span class="mr-1.5 opacity-80">${modeIcon}</span>${question}</div>`;
+            chatBox.innerHTML += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white self-end p-3.5 rounded-2xl rounded-tl-none text-sm max-w-[80%] shadow-sm font-medium"><span class="mr-1.5 opacity-80">👤</span>${question}</div>`;
             input.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -229,7 +183,12 @@
                 const response = await fetch('/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: question, mode: activeMode })
+                    body: JSON.stringify({ 
+                        question: question, 
+                        mode: "unified",
+                        user_id: activeUserId,
+                        history: chatHistory
+                    })
                 });
                 
                 if (!response.ok) {
@@ -238,6 +197,8 @@
                 }
                 
                 const data = await response.json();
+
+                if (data.history) chatHistory = data.history;
 
                 chatBox.innerHTML += `
                     <div class="bg-white text-slate-700 self-start p-4 rounded-2xl rounded-tl-none text-sm max-w-[85%] space-y-3 shadow-sm border border-purple-50 leading-relaxed">

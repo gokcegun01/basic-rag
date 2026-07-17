@@ -1,34 +1,21 @@
-# ⚡ OmniAssist AI | Enterprise RAG & Agentic Copilot
+# Gemini Unified Copilot Backend
 
-OmniAssist AI is a dual-mode, production-grade AI assistant that seamlessly fuses enterprise document management (RAG) with autonomous capabilities (Agentic Tool Calling). 
+Enterprise-grade FastAPI backend integrated with the Google GenAI SDK (`gemini-3.1-flash-lite`), ChromaDB vector storage, and Docling parser. This copilot handles native tool execution, Local RAG, Autonomous Long-Term Memory (LTM), and Web Fallbacks under strict grounding guardrails.
 
-The system analyzes uploaded PDF/TXT documents, dynamically retrieves relevant context, and uses a **3-stage fallback pipeline** (Local RAG -> Parametric Memory -> Web Search) to answer queries. For system or database actions, it switches to **Agent Mode**, orchestrating internal Python functions via a secure **Manual Function Calling** loop.
+## 🚀 Features
 
----
+- **Unified Mode Architecture**: Multi-stage waterfall pipeline that gracefully routes queries through System Tools -> Local Document RAG -> Internal/Parametric Knowledge -> Live Web Search.
+- **Short-Term Memory Preservation**: Full conversation state tracking passed seamlessly across the entire RAG pipeline without losing context between steps.
+- **Autonomous Long-Term Memory (LTM)**: Asynchronous background extraction engine that catches, vectorizes, and saves permanent user facts/preferences into a dedicated ChromaDB collection (`user_long_term_memory`).
+- **Strict Grounding Guardrails**: Zero-tolerance prompt structure designed to completely eliminate hallucinated information (e.g., placeholder identity injection) when document content is unavailable.
+- **Advanced Document Parsing**: Integration with `Docling` for robust layout-aware Markdown extraction from PDFs and TXT files.
 
-## 🌟 Key Features
+## 🛠️ Project Structure
 
-### 1. 📄 PDF & Web Chat (RAG Mode) - *Advanced Fallback Pipeline*
-* **High-Fidelity PDF Parsing:** Leverages IBM's robust `Docling` engine to parse complex PDF and TXT layouts into clean Markdown before structural chunking.
-* **Vector DB Integration:** Chunked documents are vectorized using the `gemini-embedding-2` model and indexed locally in a persistent `ChromaDB` instance.
-* **3-Stage Smart Fallback Pipeline:** 
-  1. **Local RAG:** The query is first searched within the local indexed documents.
-  2. **Parametric Memory (LLM Core Knowledge):** If the answer is not found in the documents, the model utilizes Gemini's internal knowledge pool for general information queries, avoiding unnecessary external API latency.
-  3. **Web Search Fallback:** For real-time or dynamic queries not covered in local docs, the system automatically triggers an underlying, API-free **DuckDuckGo Search** module.
-
-### 2. 🛠️ Agent Tools (Agentic Mode)
-Empowers the LLM to transition from a chat engine into an action executor using a secure **Manual Function Calling Loop**. The backend exposes 4 production-grade system tools:
-
-* 🎟️ `get_coupon_discount`: Checks the validity and exact discount percentage of specific promotional codes (e.g., *OKAN20*, *YAZ50*).
-* 📋 `get_all_active_coupons`: Fetches a complete list of currently active coupons stored in the system.
-* 📂 `list_indexed_pdfs`: Scans the server-side `data/` directory to safely list indexed PDF files in a standardized dictionary format.
-* 💾 `query_user_profile`: Queries a mock relational user database using robust input-matching.
-  * *Input Tolerance:* Handles typos and minor formatting errors (e.g., matching `user101` or `USER-101` to the normalized ID `user_101`).
-
-### 3. 🎨 Modern & Responsive UI
-* **Tailwind-Powered Dashboard:** A clean, single-page interface styled with modern UI principles.
-* **Dynamic Mode Controls:** Form inputs, file upload zones, and UI placeholders dynamically adapt depending on whether **RAG** or **Agent** mode is active.
-* **State Management:** Includes a dedicated "Clear Chat" utility to flush conversation state on both frontend and backend instantly.
+- `rag.py`: Main FastAPI server containing routing, tool definitions, and Gemini lifecycle management.
+- `index.html`: Responsive unified web chat interface.
+- `chroma_data/`: Persistent vector store directory.
+- `data/`: Target folder for uploaded and indexed workspace files.
 
 ---
 
