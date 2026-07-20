@@ -1,0 +1,95 @@
+English Test Scenarios
+🆔 1. User ID Spacing & Style Neutrality (Tests Agent 1)
+Prompt A: Can you query the live database profile for user 101?
+
+Prompt B: What is the current system status of user_101 in the department?
+
+Prompt C: Show me the personnel registry info for user101.
+
+👉 What to look for: All three prompts must successfully fetch the name "Gökçe Naz Gün" and show source: System Tool (query_user_profile).
+
+🛠️ 2. System Tool Routing (Tests Agent 1 & Agent 2)
+Prompt A: Please check the active system discount rate for the coupon code okan20.
+
+Prompt B: What active corporate validation coupons are currently defined in the system?
+
+Prompt C: List all the indexed PDF documents currently uploaded to the data folder.
+
+👉 What to look for: The system should dynamically call the corresponding python function, return the real dictionary data, and label the source as System Tool.
+
+🛡️ 3. Strict Grounding Guardrails (Tests Agent 3)
+Prompt A: What is my exact total score on the uploaded iTEP English language certificate PDF?
+
+Prompt B: According to the uploaded corporate CV document, could you list the projects I have worked on?
+
+👉 What to look for: If you haven't uploaded an iTEP certificate or a CV file containing these exact answers into the system, Agent 3 must intercept the answer. The response should show confidence_score: Low, source: Not Found, and state clearly that the requested project details were not found in the baseline document context.
+
+🌐 4. Live Web Search Fallback (Tests Agent 2's Web Integration)
+Prompt A: Who is the current Prime Minister of the United Kingdom right now?
+
+Prompt B: What major global tech conferences are happening this month?
+
+👉 What to look for: Since this info isn't in a local document or system tool, the system should gracefully route out to the internet, provide a factual answer, and declare source: DuckDuckGo Search (Web).
+
+⏳ 5. Multi-Turn History Retention (Tests Context Persistence)
+Step 1 Input: I really love cooking traditional Japanese curry meals.
+
+Step 2 Input (The actual test prompt): What country is the dish I just mentioned famous for?
+
+👉 What to look for: The system must remember your previous message from the history array and correctly answer "Japan".
+
+🧠 6. Long-Term Memory Acquisition
+Step 1 Input: I am a software engineering intern working on generative AI pipelines.
+(Let the system reply; it will autonomously extract and save this fact behind the scenes.)
+
+Step 2 Input (The test prompt): What role and department do I work in according to your confirmed memory facts?
+
+👉 What to look for: The system will locate this sentence in the long-term memory vector store and reply using the injected CRITICAL LONG-TERM MEMORY context.
+
+Türkçe Test Senaryoları
+🆔 1. Kullanıcı Kimliği Boşluk ve Stil Bağımsızlığı (Agent 1'i Test Eder)
+Sorgu A: user 101 için canlı veritabanı profilini sorgulayabilir misin?
+
+Sorgu B: Departmandaki user_101 kullanıcısının mevcut sistem durumu nedir?
+
+Sorgu C: user101 için personel kayıt bilgilerini göster.
+
+👉 Ne aranmalı: Üç sorgu da "Gökçe Naz Gün" ismini başarıyla getirmeli ve kaynak olarak System Tool (query_user_profile) göstermelidir.
+
+🛠️ 2. Sistem Aracı Yönlendirmesi (Agent 1 ve Agent 2'yi Test Eder)
+Sorgu A: Lütfen okan20 kupon kodu için aktif sistem indirim oranını kontrol et.
+
+Sorgu B: Sistemde şu anda tanımlanmış hangi aktif kurumsal doğrulama kuponları var?
+
+Sorgu C: data klasörüne yüklenmiş olan tüm indeksli PDF belgelerini listele.
+
+👉 Ne aranmalı: Sistem dinamik olarak ilgili Python fonksiyonunu çağırmalı, gerçek sözlük (dictionary) verisini dönmeli ve kaynağı System Tool olarak etiketlemelidir.
+
+🛡️ 3. Sıkı Doğrulama Koruma Duvarları (Agent 3'ü Test Eder)
+Sorgu A: Sisteme yüklenen iTEP İngilizce dil sertifikası PDF'indeki tam toplam skorum nedir?
+
+Sorgu B: Yüklenen kurumsal CV belgesine göre tamamladığım veya yer aldığım projeleri sayar mısın?
+
+👉 Ne aranmalı: Eğer sisteme bu kesin cevapları içeren bir iTEP sertifikası veya CV dosyası yüklemediyseniz, Agent 3 yanıtı engellemelidir. Yanıtta confidence_score: Low, source: Not Found görünmeli ve listelenmesi istenen projelerin döküman bağlamında bulunamadığı açıkça belirtilmelidir.
+
+🌐 4. Canlı Web Araması Alternatifi (Agent 2'nin Web Entegrasyonunu Test Eder)
+Sorgu A: Şu anda Birleşik Krallık'ın mevcut Başbakanı kimdir?
+
+Sorgu B: Bu ay hangi büyük küresel teknoloji konferansları gerçekleşiyor?
+
+👉 Ne aranmalı: Bu bilgi yerel bir dökümanda veya sistem aracında bulunmadığından, sistem zarif bir şekilde internete yönlenmeli, olgusal bir cevap sunmalı ve kaynak olarak DuckDuckGo Search (Web) bildirmelidir.
+
+⏳ 5. Çok Turlu Geçmiş Sürdürme (Bağlam Kalıcılığını Test Eder)
+1. Adım Girdisi: Geleneksel Japon körisi yemekleri pişirmeyi gerçekten çok seviyorum.
+
+2. Adım Girdisi (Asıl test sorgusu): Az önce bahsettiğim yemek hangi ülke ile ünlüdür?
+
+👉 Ne aranmalı: Sistem geçmiş dizisindeki bir önceki mesajınızı hatırlamalı ve doğru bir şekilde "Japonya" cevabını vermelidir.
+
+🧠 6. Uzun Vadeli Hafıza Edinimi
+1. Adım Girdisi: Ben üretken yapay zeka hatları üzerinde çalışan bir yazılım mühendisliği stajyeriyim.
+(Sistemin yanıt vermesini bekleyin; arka planda bu olguyu otonom olarak hafızaya kaydedecektir.)
+
+2. Adım Girdisi (Test sorgusu): Onaylanmış hafıza olgularına göre hangi rol ve departmanda çalışıyorum?
+
+👉 Ne aranmalı: Sistem bu cümleyi uzun vadeli hafıza vektör deposunda bulacak ve kaynak bloklarında CRITICAL LONG-TERM MEMORY verisini kullanarak yanıt verecektir.

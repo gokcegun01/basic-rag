@@ -1,0 +1,4 @@
+Agent 1 (Intent Router): Sorguyu temizler, rotayı (tool/rag/web) çizer. -> Çıktı: IntentAnalysis
+Agent 2 (Data Executor): Rota kaynağı verilerini (ChromaDB/Tool/Web) toplar, taslak yazar. -> Çıktı: Draft Text
+Agent 3 (Grounding Verifier): Taslağı veriyle doğrular, halüsinasyonu engeller, JSON yapar. -> Çıktı: StructuredRAGResponse (Ara)
+Agent 4 (Output Inspector): Son çıktıyı yapı, biçim ve veri uyumu için denetler, tesciller. -> Çıktı: StructuredRAGResponse (Nihai)

@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+import re
 import json as json_parser
 import chromadb
 from fastapi import FastAPI, HTTPException, File, UploadFile
@@ -23,7 +24,7 @@ chroma_client = chromadb.PersistentClient(path="./chroma_data")
 collection = chroma_client.get_or_create_collection(name="rag_documents")
 
 # =====================================================================================
-# 🧠 [HAFIZA SİSTEMİ - BAŞLANGIÇ] CHROMADB HAFIZA ODASI TANIMLAMA
+# 🧠 [MEMORY SYSTEM - INITIALIZATION] CHROMADB LONG TERM MEMORY SETUP
 # =====================================================================================
 ltm_collection = chroma_client.get_or_create_collection(name="user_long_term_memory")
 
@@ -40,7 +41,48 @@ class StructuredRAGResponse(BaseModel):
     source: str
 
 # =====================================================================================
-# 🧠 [HAFIZA SİSTEMİ - ADIM 1] VERİTABANINA YENİ HAFIZA KAYDETME FONKSİYONU
+# 🤖 [MULTI-AGENT SYSTEMS - INTER-AGENT SCHEMAS]
+# =====================================================================================
+class IntentAnalysis(BaseModel):
+    intent: str = Field(..., description="Target routing pipeline. Must be one of: 'tool', 'rag', 'parametric', 'web'")
+    target_tool: str = Field(None, description="The specific tool name to invoke if intent is 'tool'. Options: 'get_coupon_discount', 'get_all_active_coupons', 'list_indexed_pdfs', 'query_user_profile'")
+    tool_argument: str = Field(None, description="The raw string value/argument needed for the target tool (e.g., the coupon code or the user id) if applicable.")
+    is_document_targeted: bool = Field(..., description="True if the user query specifically addresses an uploaded file, document, PDF, CV, or iTEP certificate.")
+    refined_query: str = Field(..., description="An optimized search query stripped of typo irregularities, conversational padding, and user ID spaces.")
+
+# =====================================================================================
+# 🛡️ [GUARDRAIL SYSTEM - SAFETY AND SECURITY CONTROLS]
+# =====================================================================================
+def run_input_guardrails(user_query: str) -> dict:
+    """
+    Agent 1 öncesi çalışan Girdi Güvenlik Filtresi (Input Guardrail).
+    Kritik veri sızıntılarını ve prompt injection saldırılarını engeller.
+    """
+    # 1. Programmatik PII Filtresi (TCKN, Kredi Kartı gibi 11-16 haneli hassas sayı dizilimleri)
+    if re.search(r'\b\d{11,16}\b', user_query):
+        return {
+            "safe": False, 
+            "reason": "İsteğiniz hassas kişisel veri (PII) riski taşıdığı için güvenlik amacıyla engellendi."
+        }
+        
+    # 2. Hızlı Prompt Injection Sabotaj Kontrolü
+    injection_triggers = [
+        "ignore previous instructions", 
+        "system prompt", 
+        "yukarıdaki kuralları unut", 
+        "yeni talimatların şunlar", 
+        "tüm talimatları devre dışı bırak"
+    ]
+    if any(trigger in user_query.lower() for trigger in injection_triggers):
+        return {
+            "safe": False, 
+            "reason": "Sistem manipülasyonu (Prompt Injection) tespiti nedeniyle istek güvenlik duvarına takıldı."
+        }
+        
+    return {"safe": True, "reason": "Clear"}
+
+# =====================================================================================
+# 🧠 [MEMORY SYSTEM - CORE FUNCTIONS]
 # =====================================================================================
 def save_to_long_term_memory(user_id: str, insight: str) -> bool:
     try:
@@ -60,9 +102,6 @@ def save_to_long_term_memory(user_id: str, insight: str) -> bool:
         print(f"LTM Storage Error: {e}")
         return False
 
-# =====================================================================================
-# 🧠 [HAFIZA SİSTEMİ - ADIM 2] VERİTABANINDAN GEÇMİŞ ANILARI SORGULAMA VE GETİRME
-# =====================================================================================
 def get_long_term_memory(user_id: str, query: str, limit: int = 3) -> str:
     try:
         if ltm_collection.count() == 0:
@@ -80,9 +119,6 @@ def get_long_term_memory(user_id: str, query: str, limit: int = 3) -> str:
         pass
     return ""
 
-# =====================================================================================
-# 🧠 [HAFIZA SİSTEMİ - ADIM 3] KULLANICI MESAJINDAN OTONOM BİLGİ AYIKLAMA MOTORU
-# =====================================================================================
 def auto_extract_and_save_memory(user_id: str, user_msg: str):
     extraction_prompt = f"""Analyze the following user message. If it contains a permanent personal fact, role, corporate affiliation, project detail, or preference about the user, extract it as a single, clear declarative sentence in the SAME language as the user's message.
 If it contains no permanent information worth remembering long-term, reply ONLY with the word "NONE".
@@ -97,6 +133,9 @@ EXTRACTED FACT:"""
     except Exception as e:
         print(f"Autonomous memory extraction failed: {e}")
 
+# =====================================================================================
+# 🛠️ [SYSTEM TOOLS / WORKSPACE INTEGRATIONS]
+# =====================================================================================
 def serialize_history(conv_list) -> list:
     serialized = []
     for item in conv_list:
@@ -114,25 +153,25 @@ def serialize_history(conv_list) -> list:
     return serialized
 
 def get_coupon_discount(coupon_code: str) -> dict:
-    """Sistemdeki aktif kupon kodlarının indirim oranlarını döner."""
+    """Returns the discount rate for active corporate validation coupons."""
     coupons = {"yaz50": 0.50, "okan20": 0.20, "staj100": 1.00}
     code_lower = coupon_code.lower().strip()
     discount = coupons.get(code_lower, 0.0)
     return {"coupon": coupon_code, "discount_rate": f"%{int(discount * 100)}", "valid": discount > 0}
 
 def get_all_active_coupons() -> dict:
-    """Sistemde tanımlı olan tüm aktif indirim kuponu kodlarını liste halinde döner."""
+    """Lists all active system promotional codes natively allowed."""
     return {"active_coupons": ["YAZ50", "OKAN20", "STAJ100"]}
 
 def list_indexed_pdfs() -> dict:
-    """Sistemde yüklü olan ve yapay zekanın erişebildiği güncel PDF/TXT dosyalarının isimlerini liste halinde döner."""
+    """Returns a list of all raw document filenames uploaded and synced into the pipeline."""
     if not os.path.exists("data"):
         return {"files": []}
     files = [f for f in os.listdir("data") if os.path.isfile(os.path.join("data", f)) and not f.startswith(".")]
     return {"files": files}
 
 def query_user_profile(user_id: str) -> dict:
-    """Sistem veritabanına sorgu atarak aktif kullanıcıya ait profil detaylarını getirir."""
+    """Queries the internal production datastore for target profile metrics."""
     live_database = {
         "user_101": {"name": "Gökçe Naz Gün", "role": "Software Engineering Intern", "department": "Generative AI", "status": "Active"},
         "user_102": {"name": "Hakan Bey", "role": "Mentor / Senior Software Architect", "department": "Generative AI", "status": "Active"}
@@ -187,6 +226,9 @@ def search_web_free(query: str) -> str:
         print(f"DuckDuckGo search failed: {e}")
     return ""
 
+# =====================================================================================
+# 🌐 [HTTP ENDPOINTS]
+# =====================================================================================
 @app.get("/", response_class=HTMLResponse)
 def read_root():
     if not os.path.exists("index.html"):
@@ -217,29 +259,215 @@ def upload_file(file: UploadFile = File(...)):
     sync_chroma_db()
     return {"message": f"'{file.filename}' processed and indexed successfully!"}
 
+# =====================================================================================
+# 🤖 [SEQUENTIAL MULTI-AGENT PIPELINE EXECUTION]
+# =====================================================================================
+
+def agent_1_intent_router(user_query: str, history_summary: str, id_rule: str) -> IntentAnalysis:
+    """Agent 1: Specialized Intent Classifier and Query Optimizer."""
+    router_prompt = f"""You are 'Agent 1: Intent Router'. Your sole job is to parse the user's incoming query and the short-term conversation context to pick the exact execution pipeline.
+
+    {id_rule}
+
+    AVAILABLE INTENT CLASSIFICATIONS:
+    - 'tool': Use this if the query asks to fetch coupons, check specific coupon discounts, list active document indexes, or look up live user profiles.
+    - 'rag': Use this if the user asks about document metrics, specific scores, certificates, CV details, or contents expected inside uploaded files.
+    - 'parametric': General queries, greetings, core logic discussions, code configuration syntax, or assistance.
+    - 'web': Public real-world dynamic facts, general internet lookups outside local documents.
+
+    DETAILED SYSTEM TOOLS LIST:
+    - get_coupon_discount (Requires a coupon code string)
+    - get_all_active_coupons (No arguments needed)
+    - list_indexed_pdfs (No arguments needed)
+    - query_user_profile (Requires a target user ID string)
+
+    CRITICAL RULES:
+    1. If words like 'pdf', 'file', 'document', 'cv', 'itep', or 'certificate' are found, classify 'is_document_targeted' as True.
+    2. Clean the query into 'refined_query' to bypass typo or syntax constraints.
+
+    CONVERSATION CONTEXT DETECTED:
+    {history_summary}
+
+    CURRENT USER QUERY:
+    "{user_query}"
+
+    Generate the parsing routing plan according to the structural schema.
+    """
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=router_prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=IntentAnalysis
+        )
+    )
+    return IntentAnalysis.model_validate_json(response.text)
+
+
+def agent_2_data_executor(routing: IntentAnalysis, conversation_context: list, ltm: str) -> dict:
+    """Agent 2: Data Gatherer and Factual Draft Engine."""
+    context_data = ""
+    resolved_source = "Factual Knowledge Draft"
+    
+    # Execution Branch 1: Internal Tool Invocation
+    if routing.intent == "tool":
+        t_name = routing.target_tool
+        t_arg = routing.tool_argument or ""
+        
+        if t_name == "get_coupon_discount":
+            context_data = str(get_coupon_discount(coupon_code=t_arg))
+            resolved_source = "System Tool (get_coupon_discount)"
+        elif t_name == "get_all_active_coupons":
+            context_data = str(get_all_active_coupons())
+            resolved_source = "System Tool (get_all_active_coupons)"
+        elif t_name == "list_indexed_pdfs":
+            context_data = str(list_indexed_pdfs())
+            resolved_source = "System Tool (list_indexed_pdfs)"
+        elif t_name == "query_user_profile":
+            context_data = str(query_user_profile(user_id=t_arg))
+            resolved_source = "System Tool (query_user_profile)"
+        else:
+            context_data = "{'error': 'Target system tool match failed.'}"
+            
+    # Execution Branch 2: High-Fidelity Local Vector RAG (n_results=6)
+    elif routing.intent == "rag" or routing.is_document_targeted:
+        try:
+            if sync_chroma_db() and collection.count() > 0:
+                query_vector = get_emb(routing.refined_query)
+                results = collection.query(query_embeddings=[query_vector], n_results=6)
+                chunks = results.get("documents", [[]])[0]
+                metadatas = results.get("metadatas", [[]])[0]
+                
+                if chunks:
+                    context_data = "".join([f"--- Content Chunk ({m['file_name']}) ---\n{c}\n\n" for c, m in zip(chunks, metadatas)])
+                    resolved_source = metadatas[0]['file_name']
+                else:
+                    context_data = "No matching text entries found in the vector storage pool."
+                    resolved_source = "Not Found"
+        except Exception as ex:
+            context_data = f"Failed to successfully fetch vector context nodes: {str(ex)}"
+            
+    # Execution Branch 3: Live Web Crawl
+    elif routing.intent == "web":
+        context_data = search_web_free(routing.refined_query)
+        resolved_source = "DuckDuckGo Search (Web)"
+
+    # Compile data payload and execute raw answer synthesis
+    draft_prompt = f"""You are 'Agent 2: Data Executor & RAG Specialist'. Your job is to compile a raw text draft solution answering the query based on the retrieved environment context blocks. 
+    Answer in the same language as the user query.
+
+    LONG-TERM MEMORY DATA:
+    {ltm}
+
+    RAW DATA CONTEXT CONSOLE:
+    {context_data}
+
+    Is this answer bound to a document verification restriction?: {routing.is_document_targeted}
+    Refined Core Query: {routing.refined_query}
+
+    Write a detailed, factually accurate raw response text layout. Do not write JSON structure yet, provide only raw response content.
+    DRAFT TEXT OUTCOME:"""
+
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=conversation_context + [types.Content(role="user", parts=[types.Part.from_text(text=draft_prompt)])]
+    )
+    
+    return {"draft": response.text, "context": context_data, "source": resolved_source}
+
+
+def agent_3_grounding_verifier(user_query: str, execution_metrics: dict, ltm: str, routing: IntentAnalysis) -> StructuredRAGResponse:
+    """Agent 3: Gatekeeper, Compliance Judge, and Structural Polish Engine."""
+    
+    critic_instruction = f"""You are 'Agent 3: Grounding Verifier & Critic'. Your job is to audit the raw text response draft compiled by Agent 2 against the raw baseline context data AND Long-Term Memory. You must structure the output into the final JSON response schema.
+
+    STRICT AUDITING GROUND RULES:
+    1. BOTH 'RAW CONTEXT DATA' AND 'LONG-TERM MEMORY ANCHORS' ARE VALID TRUTH SOURCES. If the user explicitly asks about their memory, role, preferences, or profile facts, and the answer is present in the LONG-TERM MEMORY ANCHORS, it is considered 100% GROUNDED. Do NOT override it to 'Low' confidence.
+    2. If 'IS DOCUMENT TARGETED' is True and the exact answer parameters are completely missing from BOTH the RAW CONTEXT DATA and LONG-TERM MEMORY, only then you MUST override Agent 2's draft. Set confidence_score to 'Low', source to 'Not Found'.
+    3. NEVER allow Agent 2 to leak generic parametric knowledge or guess placeholders if no data exists in either source.
+
+    RAW USER INPUT SENTENCE: "{user_query}"
+    RAW CONTEXT DATA GATHERED BY AGENT 2: {execution_metrics['context']}
+    LONG-TERM MEMORY ANCHORS: {ltm}
+    AGENT 2 RAW RESPONSE DRAFT: {execution_metrics['draft']}
+    IS DOCUMENT TARGETED MANDATE: {routing.is_document_targeted}
+    EXPECTED SOURCE ROUTE: {execution_metrics['source']}
+    """
+    
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=critic_instruction,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=StructuredRAGResponse
+        )
+    )
+    return StructuredRAGResponse.model_validate_json(response.text)
+
+
+def agent_4_output_inspector(user_query: str, verified_response: StructuredRAGResponse, execution_metrics: dict) -> StructuredRAGResponse:
+    """Agent 4: Quality Control, Structural Integrity, and Anti-Hallucination Final Auditor."""
+    
+    inspector_instruction = f"""You are 'Agent 4: Output Inspector Agent'. Your job is to conduct a final, strict quality control audit on the structured response generated by Agent 3.
+    
+    CRITICAL INSPECTION MANDATES:
+    1. Verify that the response directly addresses the user's intent without breaking the structured JSON contract.
+    2. Long-Term Memory Validation: If Agent 3 rejected an answer based on lack of PDF context, but the user was explicitly asking about memory facts that ARE present in the system, fix Agent 3's false-positive rejection. Ensure memory requests use the memory data safely.
+    3. Formatting Polish: Return a fully audited and verified output matching the StructuredRAGResponse schema exactly.
+
+    RAW USER QUERY: "{user_query}"
+    RAW BASELINE CONTEXT DATA: {execution_metrics['context']}
+    
+    PROPOSED DATA FROM AGENT 3:
+    - Answer: {verified_response.answer}
+    - Summary Sentence: {verified_response.summary_sentence}
+    - Confidence Score: {verified_response.confidence_score}
+    - Source Path: {verified_response.source}
+    
+    Generate the final, verified, and polished structured response.
+    """
+    
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite",
+        contents=inspector_instruction,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=StructuredRAGResponse
+        )
+    )
+    return StructuredRAGResponse.model_validate_json(response.text)
+
+# =====================================================================================
+# 🚀 [MAIN PIPELINE ENDPOINT]
+# =====================================================================================
 @app.post("/ask")
 def ask_question(data: QueryModel):
     try:
         user_query = data.question
 
-        # =====================================================================================
-        # 🧠 [HAFIZA SİSTEMİ - CANLI TETİKLEME] HER SORUDA ARKA PLAN HAFIZA AKIŞININ ÇALIŞMASI
-        # =====================================================================================
+        # 🛡️ [GUARDRAIL KATMANI ACTIVATED] - CRITICAL STEP ORDER FIX
+        # Güvenlik denetimi en başta çalışarak riskli girdilerin otonom hafızaya sızmasını kesinlikle engeller.
+        guardrail_result = run_input_guardrails(user_query)
+        if not guardrail_result["safe"]:
+            return {
+                "answer": f"Güvenlik Protokolü Engellemesi: {guardrail_result['reason']}",
+                "summary_sentence": "Kullanıcı girdisi güvenlik duvarı (Guardrail) tarafından engellendi.",
+                "confidence_score": "Low",
+                "source": "Input Guardrail Shield",
+                "history": data.history
+            }
+
+        # 🧠 [MEMORY LAYER] - Yalnızca girdi tamamen güvenli olduğunda tetiklenir
         auto_extract_and_save_memory(user_id=data.user_id, user_msg=user_query)
         ltm_context = get_long_term_memory(user_id=data.user_id, query=user_query)
         
-        # =====================================================================================
-        # 🆔 YAZIM TARZI SERBESTLİK KURALI (SPACING & PUNCTUATION NEUTRALITY)
-        # =====================================================================================
         user_id_rule = """
         CRITICAL USER ID RESOLUTION RULE:
         - User IDs may be formatted with different spaces or underscores (e.g., 'user 101', 'user101', 'user_101').
         - You MUST treat 'user 101', 'user101', and 'user_101' as the EXACT SAME entity and ID. Spacing and writing style do not matter.
         """
 
-        # =====================================================================================
-        # ⏳ [MİMARİ DÜZELTME] KISA VADELİ HAFIZAYI (HISTORY) İNŞA ETME VE ASLA KAYBETMEME
-        # =====================================================================================
+        # Re-build complete short term execution conversational history arrays
         conversation = []
         if data.history:
             for msg in data.history:
@@ -260,269 +488,56 @@ def ask_question(data: QueryModel):
                     if sdk_parts:
                         conversation.append(types.Content(role=role, parts=sdk_parts))
 
-        # O anki güncel soruyu hafıza listesinin sonuna ekle
+        # Append incoming execution context tracking
         conversation.append(types.Content(role="user", parts=[types.Part.from_text(text=user_query)]))
         
-        # 🎯 TEMEL KORUYUCU PROMPT TALİMATLARI
-        system_inst = f"""You are a professional Enterprise AI Copilot. Answer in the same language as the user's question.
-        {user_id_rule}
+        # 🤖 SEQUENTIAL EXECUTION CHAIN RUNTIME
         
-        STRICT GROUNDING RULES:
-        - You must ONLY use facts directly and explicitly mentioned in the provided Document Context or Long-Term Memory.
-        - NEVER assume, extrapolate, or invent any details (such as names, scores, levels, dates, or project status) if they are not explicitly written.
-        - If the user is asking about a document, certificate, or CV and the information is missing or unreadable, state clearly that it is not found. Do NOT use your parametric general knowledge to fill in blanks or guess realistic values (like standard test scores).
-        """
+        # Step 1: Execute Agent 1 (Intent Analysis and Routing)
+        history_summary_str = str(serialize_history(conversation[:-1]))
+        routing_blueprint = agent_1_intent_router(
+            user_query=user_query, 
+            history_summary=history_summary_str, 
+            id_rule=user_id_rule
+        )
         
-        if ltm_context:
-            system_inst += f"\n[VALIDATED LONG-TERM MEMORY]:\n{ltm_context}"
-
-        # =====================================================================================
-        # ⚙️ 1. AŞAMA: ARAÇ (TOOL) TETİKLEME VE ÇALIŞTIRMA MANTIĞI
-        # =====================================================================================
-        try:
-            all_tools = [get_coupon_discount, get_all_active_coupons, list_indexed_pdfs, query_user_profile]
-            config = types.GenerateContentConfig(
-                system_instruction=system_inst,
-                tools=all_tools,
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
-            )
-            response = client.models.generate_content(model="gemini-3.1-flash-lite", contents=conversation, config=config)
-            
-            if response.function_calls:
-                func_call = response.function_calls[0]
-                func_name = func_call.name
-                func_args = func_call.args or {}
-                
-                if func_name == "get_coupon_discount":
-                    tool_result = get_coupon_discount(coupon_code=func_args.get("coupon_code"))
-                elif func_name == "get_all_active_coupons":
-                    tool_result = get_all_active_coupons()
-                elif func_name == "list_indexed_pdfs":
-                    tool_result = list_indexed_pdfs()
-                elif func_name == "query_user_profile":
-                    tool_result = query_user_profile(user_id=func_args.get("user_id"))
-                else:
-                    tool_result = {"error": f"Unknown function: {func_name}"}
-                
-                conversation.append(response.candidates[0].content)
-                tool_response_part = types.Part.from_function_response(name=func_name, response=tool_result)
-                conversation.append(types.Content(role="tool", parts=[tool_response_part]))
-                
-                final_response = client.models.generate_content(
-                    model="gemini-3.1-flash-lite",
-                    contents=conversation,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=StructuredRAGResponse
-                    )
-                )
-                
-                conversation.append(final_response.candidates[0].content)
-                try:
-                    response_dict = json_parser.loads(final_response.text)
-                except Exception:
-                    response_dict = {
-                        "answer": final_response.text,
-                        "summary_sentence": "Sistem aracı başarıyla çalıştırıldı.",
-                        "confidence_score": "High"
-                    }
-                
-                return {
-                    "answer": response_dict.get("answer", "İşlem başarıyla tamamlandı."),
-                    "summary_sentence": response_dict.get("summary_sentence", "Araç tetiklendi."),
-                    "confidence_score": response_dict.get("confidence_score", "High"),
-                    "source": response_dict.get("source") or f"Active System Tool ({func_name})",
-                    "history": serialize_history(conversation)
-                }
-
-        except Exception as e:
-            print(f"Tool routing check bypassed or failed: {e}")
-            pass
-
-        # =====================================================================================
-        # 📂 2. AŞAMA: DÖKÜMAN ANALİZİ VE YEREL RAG Component'i
-        # =====================================================================================
-        context = ""
-        source_file = "Local Document"
+        # Step 2: Execute Agent 2 (Data gathering & raw processing draft output)
+        execution_results = agent_2_data_executor(
+            routing=routing_blueprint, 
+            conversation_context=conversation, 
+            ltm=ltm_context
+        )
         
-        local_docs_available = False
-        try:
-            if sync_chroma_db() and collection.count() > 0:
-                local_docs_available = True
-        except Exception:
-            pass
-            
-        if local_docs_available:
-            try:
-                query_vector = get_emb(user_query)
-                # 📍 n_results değerini 6'ya çekerek döküman çakışmalarını egale ediyoruz
-                results = collection.query(query_embeddings=[query_vector], n_results=6)
-                retrieved_chunks = results.get("documents", [[]])[0]
-                retrieved_metadatas = results.get("metadatas", [[]])[0]
-                
-                if retrieved_chunks:
-                    context = "".join([f"--- Document Source ({meta['file_name']}) ---\n{chunk}\n\n" for chunk, meta in zip(retrieved_chunks, retrieved_metadatas)])
-                    source_file = retrieved_metadatas[0]['file_name'] if retrieved_metadatas else "Local Document"
-                    
-                    print("\n--- [DEBUG] RETRIEVED CONTEXT START ---")
-                    print(context)
-                    print("--- [DEBUG] RETRIEVED CONTEXT END ---\n")
-            except Exception as e:
-                print(f"Local RAG components search failed: {e}")
-                pass
-
-        # 🎯 KULLANICI DOĞRUDAN BELGE Mİ HEDEFLİYOR KONTROLÜ
-        is_document_targeted = any(k in user_query.lower() for k in ["pdf", "belge", "dosya", "cv", "sertifika", "itep"])
+        # Step 3: Execute Agent 3 (Strict compliance guardrails verification & schema rendering)
+        interim_structured_response = agent_3_grounding_verifier(
+            user_query=user_query, 
+            execution_metrics=execution_results, 
+            ltm=ltm_context,
+            routing=routing_blueprint
+        )
         
-        # Eğer döküman verisi bulunduysa VEYA kullanıcı doğrudan bir dökümanı sorguluyorsa akışı kilitle:
-        if context or is_document_targeted:
-            # RAG döküman içeriğini ana system instruction kümesine enjekte ediyoruz
-            system_inst += f"\n\n[DOCUMENT CONTEXT]:\n{context if context else 'No explicitly matching document sections found in the database.'}"
-            
-            if is_document_targeted:
-                system_inst += "\nCRITICAL: User is specifically asking about a file/document. Do NOT use Web Search or Parametric Knowledge fallbacks if information is missing. Strictly stick to the Document Context."
-
-            response = client.models.generate_content(
-                model="gemini-3.1-flash-lite",
-                contents=conversation,  # 📍 ARTIK GEÇMİŞİ UNUTMUYOR, TÜM LİSTEYİ GÖNDERİYORUZ!
-                config=types.GenerateContentConfig(
-                    system_instruction=system_inst,
-                    response_mime_type="application/json",
-                    response_schema=StructuredRAGResponse
-                ),
-            )
-            
-            try:
-                response_dict = json_parser.loads(response.text)
-            except Exception:
-                response_dict = {
-                    "answer": response.text,
-                    "summary_sentence": "Belge analizi sağlandı.",
-                    "confidence_score": "Medium",
-                    "source": source_file
-                }
-            
-            confidence = response_dict.get("confidence_score", "").upper()
-            answer_text = response_dict.get("answer", "").lower()
-            is_unknown = any(x in answer_text for x in ["don't know", "bilmiyorum", "not found", "i do not know", "ulaşılamadı"])
-            
-            # 📍 MUTLAK DURDURMA KAPISI: Eğer kullanıcı belge hedeflediyse sonuç Low bile olsa internete akıtma, cevabı ver!
-            if not is_unknown and confidence != "LOW" or is_document_targeted:
-                conversation.append({"role": "model", "parts": [{"text": response_dict.get("answer", "")}]})
-                return {
-                    "answer": response_dict.get("answer", ""),
-                    "summary_sentence": response_dict.get("summary_sentence", ""),
-                    "confidence_score": response_dict.get("confidence_score", "High"),
-                    "source": response_dict.get("source") or source_file,
-                    "history": serialize_history(conversation)
-                }
-
-        # =====================================================================================
-        # 🧠 3. AŞAMA: MODEL PARAMETRİK SEÇİM ALANI (Yalnızca jenerik genel kültür soruları için)
-        # =====================================================================================
-        try:
-            internal_prompt_inst = system_inst + """\nAnswer using your own general knowledge or Long-Term Memory.
-            DIRECTIONS FOR SOURCE FIELD:
-            - If you answer using the user facts inside Long-Term Memory, you MUST set the "source" field to "Long-Term Memory".
-            - Otherwise, set it to "Gemini Knowledge (Parametric)"."""
-            
-            internal_response = client.models.generate_content(
-                model="gemini-3.1-flash-lite",
-                contents=conversation,
-                config=types.GenerateContentConfig(
-                    system_instruction=internal_prompt_inst,
-                    response_mime_type="application/json",
-                    response_schema=StructuredRAGResponse
-                ),
-            )
-            
-            try:
-                internal_dict = json_parser.loads(internal_response.text)
-            except Exception:
-                internal_dict = {
-                    "answer": internal_response.text,
-                    "summary_sentence": "Genel bilgi sistemi.",
-                    "confidence_score": "High",
-                    "source": "Gemini Knowledge (Parametric)"
-                }
-                
-            internal_confidence = internal_dict.get("confidence_score", "").upper()
-            internal_answer = internal_dict.get("answer", "").lower()
-            internal_unknown = any(x in internal_answer for x in ["don't know", "bilmiyorum", "not found", "i do not know"])
-            
-            if not internal_unknown and internal_confidence in ["HIGH", "MEDIUM"]:
-                conversation.append({"role": "model", "parts": [{"text": internal_dict.get("answer", "")}]})
-                return {
-                    "answer": internal_dict.get("answer", ""),
-                    "summary_sentence": internal_dict.get("summary_sentence", ""),
-                    "confidence_score": internal_dict.get("confidence_score", "High"),
-                    "source": internal_dict.get("source") or "Gemini Knowledge (Parametric)",
-                    "history": serialize_history(conversation)
-                }
-                
-        except Exception as e:
-            print(f"Internal knowledge fallback failed: {e}")
-            pass
-
-        # =====================================================================================
-        # 🌐 4. AŞAMA: İNTERNET ARAMA MOTORU (WEB FALLBACK)
-        # =====================================================================================
-        try:
-            web_context = search_web_free(user_query)
-            if not web_context:
-                return {
-                    "answer": "Aradığınız bilgi ne yerel belgelerde, ne yapay zeka hafızasında ne de internette bulunabildi.",
-                    "summary_sentence": "Bilgi hiçbir kaynakta bulunamadı.",
-                    "confidence_score": "Low",
-                    "source": "Not Found",
-                    "history": serialize_history(conversation)
-                }
-
-            web_prompt_inst = system_inst + f"""\nAnswer strictly based on the provided Web Search Context or Long-Term Memory.
-            
-            [WEB SEARCH CONTEXT]:
-            {web_context}
-            
-            DIRECTIONS FOR SOURCE FIELD:
-            - If you answer using the user facts inside Long-Term Memory, you MUST set the "source" field to "Long-Term Memory".
-            - Otherwise, set it to "DuckDuckGo Search (Web)"."""
-            
-            structured_response = client.models.generate_content(
-                model="gemini-3.1-flash-lite",
-                contents=conversation,
-                config=types.GenerateContentConfig(
-                    system_instruction=web_prompt_inst,
-                    response_mime_type="application/json",
-                    response_schema=StructuredRAGResponse
-                ),
-            )
-            
-            try:
-                web_response_dict = json_parser.loads(structured_response.text)
-            except Exception:
-                web_response_dict = {
-                    "answer": structured_response.text,
-                    "summary_sentence": "İnternet arama havuzu.",
-                    "confidence_score": "High",
-                    "source": "DuckDuckGo Search (Web)"
-                }
-                
-            conversation.append({"role": "model", "parts": [{"text": web_response_dict.get("answer", "")}]})
-            return {
-                "answer": web_response_dict.get("answer", ""),
-                "summary_sentence": web_response_dict.get("summary_sentence", ""),
-                "confidence_score": web_response_dict.get("confidence_score", "High"),
-                "source": web_response_dict.get("source") or "DuckDuckGo Search (Web)",
-                "history": serialize_history(conversation)
-            }
-            
-        except Exception as e:
-            raise Exception(f"Fallback chain edge failure: {str(e)}")
+        # Step 4: Execute Agent 4 (Final Output Inspection, Anti-Hallucination Audit & Validation Polish)
+        final_structured_response = agent_4_output_inspector(
+            user_query=user_query,
+            verified_response=interim_structured_response,
+            execution_metrics=execution_results
+        )
+        
+        # Track the final result into the serializable session history state arrays
+        conversation.append({"role": "model", "parts": [{"text": final_structured_response.answer}]})
+        
+        return {
+            "answer": final_structured_response.answer,
+            "summary_sentence": final_structured_response.summary_sentence,
+            "confidence_score": final_structured_response.confidence_score,
+            "source": final_structured_response.source,
+            "history": serialize_history(conversation)
+        }
 
     except Exception as general_error:
         return {
-            "answer": f"İşlem tamamlanamadı: {str(general_error)}",
-            "summary_sentence": "Sistem genelinde beklenmeyen bir operasyon hatası yakalandı.",
+            "answer": f"System processing failure encountered: {str(general_error)}",
+            "summary_sentence": "An unexpected critical pipeline error occurred internally during multi-agent handling.",
             "confidence_score": "Low",
             "source": "System Error Safetynet",
             "history": []
