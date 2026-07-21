@@ -14,20 +14,24 @@ from docling.document_converter import DocumentConverter
 from duckduckgo_search import DDGS
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("API_KEY"))
-get_emb = lambda t: client.models.embed_content(model="gemini-embedding-2", contents=t).embeddings[0].values
 
-app = FastAPI(title="Enterprise Unified GenAI Copilot")
+# Google GenAI Asenkron Client
+client = genai.Client(api_key=os.getenv("API_KEY"))
+
+# Synchronous helper for embeddings
+def get_emb(text: str):
+    return client.models.embed_content(model="gemini-embedding-2", contents=text).embeddings[0].values
+
+app = FastAPI(title="Enterprise Unified GenAI Copilot (Optimized)")
 doc_converter = DocumentConverter()
 
 chroma_client = chromadb.PersistentClient(path="./chroma_data")
 collection = chroma_client.get_or_create_collection(name="rag_documents")
-
-# =====================================================================================
-# 🧠 [MEMORY SYSTEM - INITIALIZATION] CHROMADB LONG TERM MEMORY SETUP
-# =====================================================================================
 ltm_collection = chroma_client.get_or_create_collection(name="user_long_term_memory")
 
+# =====================================================================================
+# 📋 [SCHEMAS & MODELS]
+# =====================================================================================
 class QueryModel(BaseModel):
     question: str = Field(..., min_length=2, max_length=500)
     mode: str = Field("unified") 
@@ -40,9 +44,6 @@ class StructuredRAGResponse(BaseModel):
     confidence_score: str
     source: str
 
-# =====================================================================================
-# 🤖 [MULTI-AGENT SYSTEMS - INTER-AGENT SCHEMAS]
-# =====================================================================================
 class IntentAnalysis(BaseModel):
     intent: str = Field(..., description="Target routing pipeline. Must be one of: 'tool', 'rag', 'parametric', 'web'")
     target_tool: str = Field(None, description="The specific tool name to invoke if intent is 'tool'. Options: 'get_coupon_discount', 'get_all_active_coupons', 'list_indexed_pdfs', 'query_user_profile'")
@@ -51,90 +52,7 @@ class IntentAnalysis(BaseModel):
     refined_query: str = Field(..., description="An optimized search query stripped of typo irregularities, conversational padding, and user ID spaces.")
 
 # =====================================================================================
-# 🛡️ [GUARDRAIL SYSTEM - SAFETY AND SECURITY CONTROLS]
-# =====================================================================================
-def run_input_guardrails(user_query: str) -> dict:
-    """
-    Agent 1 öncesi çalışan Girdi Güvenlik Filtresi (Input Guardrail).
-    Kritik veri sızıntılarını ve prompt injection saldırılarını engeller.
-    """
-    # 1. Programmatik PII Filtresi (TCKN, Kredi Kartı gibi 11-16 haneli hassas sayı dizilimleri)
-    if re.search(r'\b\d{11,16}\b', user_query):
-        return {
-            "safe": False, 
-            "reason": "İsteğiniz hassas kişisel veri (PII) riski taşıdığı için güvenlik amacıyla engellendi."
-        }
-        
-    # 2. Hızlı Prompt Injection Sabotaj Kontrolü
-    injection_triggers = [
-        "ignore previous instructions", 
-        "system prompt", 
-        "yukarıdaki kuralları unut", 
-        "yeni talimatların şunlar", 
-        "tüm talimatları devre dışı bırak"
-    ]
-    if any(trigger in user_query.lower() for trigger in injection_triggers):
-        return {
-            "safe": False, 
-            "reason": "Sistem manipülasyonu (Prompt Injection) tespiti nedeniyle istek güvenlik duvarına takıldı."
-        }
-        
-    return {"safe": True, "reason": "Clear"}
-
-# =====================================================================================
-# 🧠 [MEMORY SYSTEM - CORE FUNCTIONS]
-# =====================================================================================
-def save_to_long_term_memory(user_id: str, insight: str) -> bool:
-    try:
-        existing = ltm_collection.get(where={"user_id": user_id})
-        if existing and insight in existing.get("documents", []):
-            return False
-            
-        vector = get_emb(insight)
-        ltm_collection.add(
-            ids=[str(uuid.uuid4())],
-            embeddings=[vector],
-            documents=[insight],
-            metadatas=[{"user_id": user_id}]
-        )
-        return True
-    except Exception as e:
-        print(f"LTM Storage Error: {e}")
-        return False
-
-def get_long_term_memory(user_id: str, query: str, limit: int = 3) -> str:
-    try:
-        if ltm_collection.count() == 0:
-            return ""
-        query_vector = get_emb(query)
-        results = ltm_collection.query(
-            query_embeddings=[query_vector],
-            n_results=limit,
-            where={"user_id": user_id}
-        )
-        if results and results.get("documents") and results["documents"][0]:
-            memories = "\n".join([f"- {doc}" for doc in results["documents"][0]])
-            return f"\n[CRITICAL LONG-TERM MEMORY - CONFIRMED USER FACTS]:\n{memories}\n"
-    except Exception:
-        pass
-    return ""
-
-def auto_extract_and_save_memory(user_id: str, user_msg: str):
-    extraction_prompt = f"""Analyze the following user message. If it contains a permanent personal fact, role, corporate affiliation, project detail, or preference about the user, extract it as a single, clear declarative sentence in the SAME language as the user's message.
-If it contains no permanent information worth remembering long-term, reply ONLY with the word "NONE".
-
-USER MESSAGE: "{user_msg}"
-EXTRACTED FACT:"""
-    try:
-        res = client.models.generate_content(model="gemini-3.1-flash-lite", contents=extraction_prompt)
-        extracted_text = res.text.strip()
-        if extracted_text and "NONE" not in extracted_text.upper():
-            save_to_long_term_memory(user_id=user_id, insight=extracted_text)
-    except Exception as e:
-        print(f"Autonomous memory extraction failed: {e}")
-
-# =====================================================================================
-# 🛠️ [SYSTEM TOOLS / WORKSPACE INTEGRATIONS]
+# 🛠️ [SYSTEM TOOLS & WORKSPACE INTEGRATIONS]
 # =====================================================================================
 def serialize_history(conv_list) -> list:
     serialized = []
@@ -153,25 +71,21 @@ def serialize_history(conv_list) -> list:
     return serialized
 
 def get_coupon_discount(coupon_code: str) -> dict:
-    """Returns the discount rate for active corporate validation coupons."""
     coupons = {"yaz50": 0.50, "okan20": 0.20, "staj100": 1.00}
     code_lower = coupon_code.lower().strip()
     discount = coupons.get(code_lower, 0.0)
     return {"coupon": coupon_code, "discount_rate": f"%{int(discount * 100)}", "valid": discount > 0}
 
 def get_all_active_coupons() -> dict:
-    """Lists all active system promotional codes natively allowed."""
     return {"active_coupons": ["YAZ50", "OKAN20", "STAJ100"]}
 
 def list_indexed_pdfs() -> dict:
-    """Returns a list of all raw document filenames uploaded and synced into the pipeline."""
     if not os.path.exists("data"):
         return {"files": []}
     files = [f for f in os.listdir("data") if os.path.isfile(os.path.join("data", f)) and not f.startswith(".")]
     return {"files": files}
 
 def query_user_profile(user_id: str) -> dict:
-    """Queries the internal production datastore for target profile metrics."""
     live_database = {
         "user_101": {"name": "Gökçe Naz Gün", "role": "Software Engineering Intern", "department": "Generative AI", "status": "Active"},
         "user_102": {"name": "Hakan Bey", "role": "Mentor / Senior Software Architect", "department": "Generative AI", "status": "Active"}
@@ -181,40 +95,6 @@ def query_user_profile(user_id: str) -> dict:
         if normalized_input == key.replace("_", ""):
             return {"found": True, "user_data": data}
     return {"found": False, "error": f"ID '{user_id}' not found in personnel registry."}
-
-def sync_chroma_db():
-    if collection.count() > 0:
-        return True
-    if not os.path.exists("data"):
-        return False
-        
-    documents, embeddings, ids, metadatas = [], [], [], []
-    id_counter = 0
-    
-    for file_name in os.listdir("data"):
-        file_path = f"data/{file_name}"
-        raw_chunks = []
-        
-        if file_name.endswith(".txt"):
-            with open(file_path, "r", encoding="utf-8") as f:
-                raw_chunks = [p.strip() for p in f.read().split("\n\n") if p.strip()]
-        elif file_name.endswith(".pdf"):
-            conversion_result = doc_converter.convert(file_path)
-            markdown_text = conversion_result.document.export_to_markdown()
-            raw_chunks = [p.strip() for p in markdown_text.split("\n\n") if p.strip()]
-            
-        chunks = ["\n\n".join(raw_chunks[k : k + 4]) for k in range(0, len(raw_chunks), 4)]
-            
-        for chunk in chunks:
-            documents.append(chunk)
-            embeddings.append(get_emb(chunk)) 
-            ids.append(f"doc_{id_counter}")
-            metadatas.append({"file_name": file_name})
-            id_counter += 1
-            
-    if documents:
-        collection.add(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
-    return True
 
 def search_web_free(query: str) -> str:
     try:
@@ -226,51 +106,107 @@ def search_web_free(query: str) -> str:
         print(f"DuckDuckGo search failed: {e}")
     return ""
 
-# =====================================================================================
-# 🌐 [HTTP ENDPOINTS]
-# =====================================================================================
-@app.get("/", response_class=HTMLResponse)
-def read_root():
-    if not os.path.exists("index.html"):
-        raise HTTPException(status_code=404, detail="index.html file not found!")
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read()
+def index_single_file(file_path: str, file_name: str):
+    """Artımlı (incremental) dosya chunking ve indeksleme helper'ı."""
+    raw_chunks = []
+    if file_name.endswith(".txt"):
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw_chunks = [p.strip() for p in f.read().split("\n\n") if p.strip()]
+    elif file_name.endswith(".pdf"):
+        conversion_result = doc_converter.convert(file_path)
+        markdown_text = conversion_result.document.export_to_markdown()
+        raw_chunks = [p.strip() for p in markdown_text.split("\n\n") if p.strip()]
 
-@app.get("/files")
-def list_files():
-    if not os.path.exists("data"):
-        return []
-    return [f for f in os.listdir("data") if os.path.isfile(os.path.join("data", f)) and not f.startswith(".")]
+    chunks = ["\n\n".join(raw_chunks[k : k + 4]) for k in range(0, len(raw_chunks), 4)]
+    if chunks:
+        documents, embeddings, ids, metadatas = [], [], [], []
+        for idx, chunk in enumerate(chunks):
+            documents.append(chunk)
+            embeddings.append(get_emb(chunk))
+            ids.append(f"{file_name}_{idx}_{uuid.uuid4().hex[:6]}")
+            metadatas.append({"file_name": file_name})
+        collection.add(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
 
-@app.post("/upload")
-def upload_file(file: UploadFile = File(...)):
-    if not os.path.exists("data"):
-        os.makedirs("data")
-    file_path = f"data/{file.filename}"
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+# =====================================================================================
+# 🛡️ [GUARDRAILS & MEMORY HELPERS]
+# =====================================================================================
+def run_input_guardrails(user_query: str) -> dict:
+    if re.search(r'\b\d{11,16}\b', user_query):
+        return {
+            "safe": False, 
+            "reason": "Your request was blocked for security reasons due to potential sensitive personally identifiable information (PII) leakage."
+        }
         
-    global collection
+    injection_triggers = [
+        "ignore previous instructions", "system prompt", "forget the rules above",
+        "your new instructions are", "disable all instructions", "override all instructions"
+    ]
+    if any(trigger in user_query.lower() for trigger in injection_triggers):
+        return {
+            "safe": False, 
+            "reason": "Request blocked by security guardrails due to detected system manipulation (Prompt Injection)."
+        }
+    return {"safe": True, "reason": "Clear"}
+
+async def save_to_long_term_memory(user_id: str, insight: str) -> bool:
     try:
-        chroma_client.delete_collection(name="rag_documents")
+        existing = ltm_collection.get(where={"user_id": user_id})
+        if existing and insight in existing.get("documents", []):
+            return False
+            
+        vector = get_emb(insight)
+        ltm_collection.add(
+            ids=[str(uuid.uuid4())],
+            embeddings=[vector],
+            documents=[insight],
+            metadatas=[{"user_id": user_id}]
+        )
+        return True
+    except Exception as e:
+        print(f"LTM Storage Error: {e}")
+        return False
+
+async def get_long_term_memory(user_id: str, query: str, limit: int = 3) -> str:
+    try:
+        if ltm_collection.count() == 0:
+            return ""
+        query_vector = get_emb(query)
+        results = ltm_collection.query(
+            query_embeddings=[query_vector],
+            n_results=limit,
+            where={"user_id": user_id}
+        )
+        if results and results.get("documents") and results["documents"][0]:
+            memories = "\n".join([f"- {doc}" for doc in results["documents"][0]])
+            return f"\n[CRITICAL LONG-TERM MEMORY - CONFIRMED USER FACTS]:\n{memories}\n"
     except Exception:
         pass
-    collection = chroma_client.get_or_create_collection(name="rag_documents")
-    sync_chroma_db()
-    return {"message": f"'{file.filename}' processed and indexed successfully!"}
+    return ""
+
+async def auto_extract_and_save_memory(user_id: str, user_msg: str):
+    extraction_prompt = f"""Analyze the following user message. If it contains a permanent personal fact, role, corporate affiliation, project detail, or preference about the user, extract it as a single, clear declarative sentence in the SAME language as the user's message.
+If it contains no permanent information worth remembering long-term, reply ONLY with the word "NONE".
+
+USER MESSAGE: "{user_msg}"
+EXTRACTED FACT:"""
+    try:
+        res = await client.aio.models.generate_content(model="gemini-3.1-flash-lite", contents=extraction_prompt)
+        extracted_text = res.text.strip()
+        if extracted_text and "NONE" not in extracted_text.upper():
+            await save_to_long_term_memory(user_id=user_id, insight=extracted_text)
+    except Exception as e:
+        print(f"Autonomous memory extraction failed: {e}")
 
 # =====================================================================================
-# 🤖 [SEQUENTIAL MULTI-AGENT PIPELINE EXECUTION]
+# 🤖 [4-AGENT SEQUENTIAL PIPELINE - ASYNC EXECUTION]
 # =====================================================================================
-
-def agent_1_intent_router(user_query: str, history_summary: str, id_rule: str) -> IntentAnalysis:
-    """Agent 1: Specialized Intent Classifier and Query Optimizer."""
+async def agent_1_intent_router(user_query: str, history_summary: str, id_rule: str) -> IntentAnalysis:
     router_prompt = f"""You are 'Agent 1: Intent Router'. Your sole job is to parse the user's incoming query and the short-term conversation context to pick the exact execution pipeline.
 
     {id_rule}
 
     AVAILABLE INTENT CLASSIFICATIONS:
-    - 'tool': Use this if the query asks to fetch coupons, check specific coupon discounts, list active document indexes, or look up live user profiles.
+    - 'tool': Use this if the query asks to fetch coupons, check specific coupon discounts, list active document indexes, or look up live user profiles (e.g., user_101, user 101, user101, user_102).
     - 'rag': Use this if the user asks about document metrics, specific scores, certificates, CV details, or contents expected inside uploaded files.
     - 'parametric': General queries, greetings, core logic discussions, code configuration syntax, or assistance.
     - 'web': Public real-world dynamic facts, general internet lookups outside local documents.
@@ -279,7 +215,7 @@ def agent_1_intent_router(user_query: str, history_summary: str, id_rule: str) -
     - get_coupon_discount (Requires a coupon code string)
     - get_all_active_coupons (No arguments needed)
     - list_indexed_pdfs (No arguments needed)
-    - query_user_profile (Requires a target user ID string)
+    - query_user_profile (Requires a target user ID string like 'user_101')
 
     CRITICAL RULES:
     1. If words like 'pdf', 'file', 'document', 'cv', 'itep', or 'certificate' are found, classify 'is_document_targeted' as True.
@@ -293,7 +229,7 @@ def agent_1_intent_router(user_query: str, history_summary: str, id_rule: str) -
 
     Generate the parsing routing plan according to the structural schema.
     """
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-lite",
         contents=router_prompt,
         config=types.GenerateContentConfig(
@@ -303,13 +239,10 @@ def agent_1_intent_router(user_query: str, history_summary: str, id_rule: str) -
     )
     return IntentAnalysis.model_validate_json(response.text)
 
-
-def agent_2_data_executor(routing: IntentAnalysis, conversation_context: list, ltm: str) -> dict:
-    """Agent 2: Data Gatherer and Factual Draft Engine."""
+async def agent_2_data_executor(routing: IntentAnalysis, conversation_context: list, ltm: str) -> dict:
     context_data = ""
     resolved_source = "Factual Knowledge Draft"
     
-    # Execution Branch 1: Internal Tool Invocation
     if routing.intent == "tool":
         t_name = routing.target_tool
         t_arg = routing.tool_argument or ""
@@ -329,10 +262,9 @@ def agent_2_data_executor(routing: IntentAnalysis, conversation_context: list, l
         else:
             context_data = "{'error': 'Target system tool match failed.'}"
             
-    # Execution Branch 2: High-Fidelity Local Vector RAG (n_results=6)
     elif routing.intent == "rag" or routing.is_document_targeted:
         try:
-            if sync_chroma_db() and collection.count() > 0:
+            if collection.count() > 0:
                 query_vector = get_emb(routing.refined_query)
                 results = collection.query(query_embeddings=[query_vector], n_results=6)
                 chunks = results.get("documents", [[]])[0]
@@ -347,12 +279,10 @@ def agent_2_data_executor(routing: IntentAnalysis, conversation_context: list, l
         except Exception as ex:
             context_data = f"Failed to successfully fetch vector context nodes: {str(ex)}"
             
-    # Execution Branch 3: Live Web Crawl
     elif routing.intent == "web":
         context_data = search_web_free(routing.refined_query)
         resolved_source = "DuckDuckGo Search (Web)"
 
-    # Compile data payload and execute raw answer synthesis
     draft_prompt = f"""You are 'Agent 2: Data Executor & RAG Specialist'. Your job is to compile a raw text draft solution answering the query based on the retrieved environment context blocks. 
     Answer in the same language as the user query.
 
@@ -368,21 +298,18 @@ def agent_2_data_executor(routing: IntentAnalysis, conversation_context: list, l
     Write a detailed, factually accurate raw response text layout. Do not write JSON structure yet, provide only raw response content.
     DRAFT TEXT OUTCOME:"""
 
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-lite",
         contents=conversation_context + [types.Content(role="user", parts=[types.Part.from_text(text=draft_prompt)])]
     )
     
     return {"draft": response.text, "context": context_data, "source": resolved_source}
 
-
-def agent_3_grounding_verifier(user_query: str, execution_metrics: dict, ltm: str, routing: IntentAnalysis) -> StructuredRAGResponse:
-    """Agent 3: Gatekeeper, Compliance Judge, and Structural Polish Engine."""
-    
+async def agent_3_grounding_verifier(user_query: str, execution_metrics: dict, ltm: str, routing: IntentAnalysis) -> StructuredRAGResponse:
     critic_instruction = f"""You are 'Agent 3: Grounding Verifier & Critic'. Your job is to audit the raw text response draft compiled by Agent 2 against the raw baseline context data AND Long-Term Memory. You must structure the output into the final JSON response schema.
 
     STRICT AUDITING GROUND RULES:
-    1. BOTH 'RAW CONTEXT DATA' AND 'LONG-TERM MEMORY ANCHORS' ARE VALID TRUTH SOURCES. If the user explicitly asks about their memory, role, preferences, or profile facts, and the answer is present in the LONG-TERM MEMORY ANCHORS, it is considered 100% GROUNDED. Do NOT override it to 'Low' confidence.
+    1. BOTH 'RAW CONTEXT DATA' AND 'LONG-TERM MEMORY ANCHORS' ARE VALID TRUTH SOURCES. If the user explicitly asks about their memory, role, preferences, or profile facts, and the answer is present in the LONG-TERM MEMORY ANCHORS or RAW CONTEXT DATA, it is considered 100% GROUNDED. Do NOT override it to 'Low' confidence.
     2. If 'IS DOCUMENT TARGETED' is True and the exact answer parameters are completely missing from BOTH the RAW CONTEXT DATA and LONG-TERM MEMORY, only then you MUST override Agent 2's draft. Set confidence_score to 'Low', source to 'Not Found'.
     3. NEVER allow Agent 2 to leak generic parametric knowledge or guess placeholders if no data exists in either source.
 
@@ -394,7 +321,7 @@ def agent_3_grounding_verifier(user_query: str, execution_metrics: dict, ltm: st
     EXPECTED SOURCE ROUTE: {execution_metrics['source']}
     """
     
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-lite",
         contents=critic_instruction,
         config=types.GenerateContentConfig(
@@ -404,15 +331,12 @@ def agent_3_grounding_verifier(user_query: str, execution_metrics: dict, ltm: st
     )
     return StructuredRAGResponse.model_validate_json(response.text)
 
-
-def agent_4_output_inspector(user_query: str, verified_response: StructuredRAGResponse, execution_metrics: dict) -> StructuredRAGResponse:
-    """Agent 4: Quality Control, Structural Integrity, and Anti-Hallucination Final Auditor."""
-    
+async def agent_4_output_inspector(user_query: str, verified_response: StructuredRAGResponse, execution_metrics: dict) -> StructuredRAGResponse:
     inspector_instruction = f"""You are 'Agent 4: Output Inspector Agent'. Your job is to conduct a final, strict quality control audit on the structured response generated by Agent 3.
     
     CRITICAL INSPECTION MANDATES:
     1. Verify that the response directly addresses the user's intent without breaking the structured JSON contract.
-    2. Long-Term Memory Validation: If Agent 3 rejected an answer based on lack of PDF context, but the user was explicitly asking about memory facts that ARE present in the system, fix Agent 3's false-positive rejection. Ensure memory requests use the memory data safely.
+    2. Long-Term Memory & Tool Output Validation: If Agent 3 rejected an answer based on lack of PDF context, but the data IS present in context/memory, fix Agent 3's false-positive rejection.
     3. Formatting Polish: Return a fully audited and verified output matching the StructuredRAGResponse schema exactly.
 
     RAW USER QUERY: "{user_query}"
@@ -427,7 +351,7 @@ def agent_4_output_inspector(user_query: str, verified_response: StructuredRAGRe
     Generate the final, verified, and polished structured response.
     """
     
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-lite",
         contents=inspector_instruction,
         config=types.GenerateContentConfig(
@@ -438,15 +362,38 @@ def agent_4_output_inspector(user_query: str, verified_response: StructuredRAGRe
     return StructuredRAGResponse.model_validate_json(response.text)
 
 # =====================================================================================
-# 🚀 [MAIN PIPELINE ENDPOINT]
+# 🌐 [HTTP ENDPOINTS]
 # =====================================================================================
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    if not os.path.exists("index.html"):
+        raise HTTPException(status_code=404, detail="index.html file not found!")
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/files")
+async def list_files():
+    if not os.path.exists("data"):
+        return []
+    return [f for f in os.listdir("data") if os.path.isfile(os.path.join("data", f)) and not f.startswith(".")]
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    file_path = f"data/{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    index_single_file(file_path, file.filename)
+    return {"message": f"'{file.filename}' processed and incrementally indexed successfully!"}
+
 @app.post("/ask")
-def ask_question(data: QueryModel):
+async def ask_question(data: QueryModel):
     try:
         user_query = data.question
 
-        # 🛡️ [GUARDRAIL KATMANI ACTIVATED] - CRITICAL STEP ORDER FIX
-        # Güvenlik denetimi en başta çalışarak riskli girdilerin otonom hafızaya sızmasını kesinlikle engeller.
+        # 🛡️ 1. Guardrail Step
         guardrail_result = run_input_guardrails(user_query)
         if not guardrail_result["safe"]:
             return {
@@ -457,9 +404,9 @@ def ask_question(data: QueryModel):
                 "history": data.history
             }
 
-        # 🧠 [MEMORY LAYER] - Yalnızca girdi tamamen güvenli olduğunda tetiklenir
-        auto_extract_and_save_memory(user_id=data.user_id, user_msg=user_query)
-        ltm_context = get_long_term_memory(user_id=data.user_id, query=user_query)
+        # 🧠 2. Memory Step
+        await auto_extract_and_save_memory(user_id=data.user_id, user_msg=user_query)
+        ltm_context = await get_long_term_memory(user_id=data.user_id, query=user_query)
         
         user_id_rule = """
         CRITICAL USER ID RESOLUTION RULE:
@@ -467,63 +414,57 @@ def ask_question(data: QueryModel):
         - You MUST treat 'user 101', 'user101', and 'user_101' as the EXACT SAME entity and ID. Spacing and writing style do not matter.
         """
 
-        # Re-build complete short term execution conversational history arrays
+        # 🔄 3. Sliding Window History Management (Last 6 entries)
         conversation = []
-        if data.history:
-            for msg in data.history:
-                if isinstance(msg, dict):
-                    role = msg.get("role", "user")
-                    parts_list = msg.get("parts", [])
-                    sdk_parts = []
-                    for p in parts_list:
-                        if isinstance(p, dict):
-                            if "text" in p and p["text"]:
-                                sdk_parts.append(types.Part.from_text(text=p["text"]))
-                            elif "function_call" in p and p["function_call"]:
-                                fc = p["function_call"]
-                                sdk_parts.append(types.Part(function_call=types.FunctionCall(name=fc.get("name"), args=fc.get("args"))))
-                            elif "function_response" in p and p["function_response"]:
-                                fr = p["function_response"]
-                                sdk_parts.append(types.Part(function_response=types.FunctionResponse(name=fr.get("name"), response=fr.get("response"))))
-                    if sdk_parts:
-                        conversation.append(types.Content(role=role, parts=sdk_parts))
+        recent_history = data.history[-6:] if data.history else []
+        for msg in recent_history:
+            if isinstance(msg, dict):
+                role = msg.get("role", "user")
+                parts_list = msg.get("parts", [])
+                sdk_parts = []
+                for p in parts_list:
+                    if isinstance(p, dict):
+                        if "text" in p and p["text"]:
+                            sdk_parts.append(types.Part.from_text(text=p["text"]))
+                        elif "function_call" in p and p["function_call"]:
+                            fc = p["function_call"]
+                            sdk_parts.append(types.Part(function_call=types.FunctionCall(name=fc.get("name"), args=fc.get("args"))))
+                        elif "function_response" in p and p["function_response"]:
+                            fr = p["function_response"]
+                            sdk_parts.append(types.Part(function_response=types.FunctionResponse(name=fr.get("name"), response=fr.get("response"))))
+                if sdk_parts:
+                    conversation.append(types.Content(role=role, parts=sdk_parts))
 
-        # Append incoming execution context tracking
         conversation.append(types.Content(role="user", parts=[types.Part.from_text(text=user_query)]))
         
-        # 🤖 SEQUENTIAL EXECUTION CHAIN RUNTIME
-        
-        # Step 1: Execute Agent 1 (Intent Analysis and Routing)
+        # 🤖 4. Sequential Async Pipeline Execution
         history_summary_str = str(serialize_history(conversation[:-1]))
-        routing_blueprint = agent_1_intent_router(
+        
+        routing_blueprint = await agent_1_intent_router(
             user_query=user_query, 
             history_summary=history_summary_str, 
             id_rule=user_id_rule
         )
         
-        # Step 2: Execute Agent 2 (Data gathering & raw processing draft output)
-        execution_results = agent_2_data_executor(
+        execution_results = await agent_2_data_executor(
             routing=routing_blueprint, 
             conversation_context=conversation, 
             ltm=ltm_context
         )
         
-        # Step 3: Execute Agent 3 (Strict compliance guardrails verification & schema rendering)
-        interim_structured_response = agent_3_grounding_verifier(
+        interim_structured_response = await agent_3_grounding_verifier(
             user_query=user_query, 
             execution_metrics=execution_results, 
             ltm=ltm_context,
             routing=routing_blueprint
         )
         
-        # Step 4: Execute Agent 4 (Final Output Inspection, Anti-Hallucination Audit & Validation Polish)
-        final_structured_response = agent_4_output_inspector(
+        final_structured_response = await agent_4_output_inspector(
             user_query=user_query,
             verified_response=interim_structured_response,
             execution_metrics=execution_results
         )
         
-        # Track the final result into the serializable session history state arrays
         conversation.append({"role": "model", "parts": [{"text": final_structured_response.answer}]})
         
         return {
