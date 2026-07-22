@@ -10,6 +10,26 @@
         #chatBox::-webkit-scrollbar-track, #filesList::-webkit-scrollbar-track { background: transparent; }
         #chatBox::-webkit-scrollbar-thumb, #filesList::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         #chatBox::-webkit-scrollbar-thumb:hover, #filesList::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+        /* Yazıyor... Balonu Üç Nokta Animasyonu */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #a855f7; /* Purple-500 */
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+            40% { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-rose-50 via-purple-50 to-indigo-50 min-h-screen font-sans text-slate-700 antialiased flex items-center justify-center p-4">
@@ -89,6 +109,31 @@
 
         let chatHistory = [];
         const activeUserId = "user_101";
+
+        function showTypingIndicator() {
+            const chatBox = document.getElementById('chatBox');
+            if (document.getElementById('typingIndicator')) return;
+
+            const indicatorHTML = `
+                <div id="typingIndicator" class="bg-white text-slate-500 self-start p-3.5 rounded-2xl rounded-tl-none text-sm shadow-sm border border-purple-50 flex items-center gap-2">
+                    <span class="text-xs">🤖</span>
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            chatBox.insertAdjacentHTML('beforeend', indicatorHTML);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
 
         function clearChat() {
             chatHistory = [];
@@ -173,11 +218,15 @@
 
             if (!question) return;
 
+            // 1. Kullanıcı mesajını ekrana bas
             chatBox.innerHTML += `<div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white self-end p-3.5 rounded-2xl rounded-tl-none text-sm max-w-[80%] shadow-sm font-medium"><span class="mr-1.5 opacity-80">👤</span>${question}</div>`;
             input.value = "";
             chatBox.scrollTop = chatBox.scrollHeight;
 
             btn.disabled = true;
+
+            // 2. YAZIYOR... BALONUNU GÖSTER
+            showTypingIndicator();
 
             try {
                 const response = await fetch('/ask', {
@@ -200,6 +249,10 @@
 
                 if (data.history) chatHistory = data.history;
 
+                // 3. YANIT GELDİĞİNDE BALONU KALDIR
+                removeTypingIndicator();
+
+                // 4. Bot yanıtını ekrana bas
                 chatBox.innerHTML += `
                     <div class="bg-white text-slate-700 self-start p-4 rounded-2xl rounded-tl-none text-sm max-w-[85%] space-y-3 shadow-sm border border-purple-50 leading-relaxed">
                         <div class="flex items-center gap-1.5 text-xs font-bold text-purple-600 border-b border-purple-50 pb-1.5">
@@ -216,6 +269,8 @@
                     </div>
                 `;
             } catch (error) {
+                // Hata durumunda da balonu kaldır
+                removeTypingIndicator();
                 chatBox.innerHTML += `<div class="bg-rose-50 text-rose-600 self-start p-3.5 rounded-2xl rounded-tl-none text-sm border border-rose-100">❌ Error: ${error.message}</div>`;
             } finally {
                 btn.disabled = false;
