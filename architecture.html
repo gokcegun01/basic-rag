@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniAssist AI - Enterprise System Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: linear-gradient(135deg, #fff1f2 0%, #faf5ff 50%, #fce7f3 100%);
+            color: #334155;
+        }
+
+        .arch-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1.5px solid;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(244, 114, 182, 0.1);
+            position: relative;
+        }
+
+        .badge-num {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+
+        .badge-pink { background-color: #ec4899; }
+        .badge-purple { background-color: #a855f7; }
+        .badge-rose { background-color: #f43f5e; }
+        .badge-amber { background-color: #f59e0b; }
+        .badge-emerald { background-color: #10b981; }
+        .badge-blue { background-color: #3b82f6; }
+        .badge-slate { background-color: #64748b; }
+    </style>
+</head>
+<body class="p-6 min-w-[1350px]">
+
+    <!-- BAŞLIK KATMANI -->
+    <header class="text-center mb-6">
+        <h1 class="text-2xl font-extrabold tracking-wide bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            ENTERPRISE UNIFIED GENAI COPILOT — SİSTEM MİMARİSİ
+        </h1>
+        <p class="text-xs text-purple-600 font-semibold mt-1">
+            FastAPI Backend • Asenkron 4-Ajan Boru Hattı • ChromaDB LTM & RAG • Docling Indexer
+        </p>
+    </header>
+
+    <!-- ÜST KATMAN: FRONTEND, BACKEND VE ARAÇLAR -->
+    <div class="grid grid-cols-12 gap-4 mb-4">
+        
+        <!-- 1. FRONTEND KATMANI -->
+        <div class="col-span-4 arch-card border-pink-300 p-3.5 flex flex-col justify-start">
+            <div class="flex items-center justify-between mb-2 border-b border-pink-100 pb-2">
+                <div class="flex items-center text-pink-900 font-bold text-xs">
+                    <span class="badge-num badge-pink">1</span> FRONTEND (Web Arayüzü)
+                </div>
+                <span class="text-[9px] font-mono bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-bold">Single-Page UI</span>
+            </div>
+
+            <!-- BİREBİR OMNIASSIST AI UI MOCKUP -->
+            <div class="bg-gradient-to-br from-rose-50/50 via-purple-50/50 to-indigo-50/50 rounded-2xl border border-purple-100/80 p-3 shadow-inner">
+                <div class="flex items-center justify-between border-b border-purple-100 pb-2 mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white text-xs shadow-sm">
+                            ⚡
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">OmniAssist AI</h3>
+                            <p class="text-[8px] text-slate-400 font-semibold uppercase tracking-wider">ENTERPRISE RAG & AGENTIC COPILOT</p>
+                        </div>
+                    </div>
+                    <span class="text-[8px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-semibold border border-purple-100">
+                        v1.2.3 (Unified Agent)
+                    </span>
+                </div>
+
+                <div class="bg-white/90 rounded-xl p-2.5 text-[9.5px] text-slate-600 border border-purple-50 shadow-sm leading-relaxed mb-2">
+                    Hello! 🌟 I am <strong>OmniAssist AI</strong>.<br><br>
+                    How can I assist you today? You can completely interact with all services in one place:<br><br>
+                    * <strong>Document Intelligence:</strong> Upload PDFs to analyze and query data dynamically.<br>
+                    * <strong>Enterprise Operations:</strong> Use active system tools seamlessly. Try asking:<br>
+                    &nbsp;&nbsp;• <em>"Sistemdeki PDF dosyalarının listesini döner misin?"</em><br>
+                    &nbsp;&nbsp;• <em>"Veritabanından user_101 profilini sorgular mısın?"</em><br>
+                    &nbsp;&nbsp;• <em>"OKAN20 kuponu geçerli mi?"</em>
+                </div>
+
+                <div class="flex justify-end mb-2">
+                    <span class="text-[8px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100 flex items-center gap-0.5">
+                        🗑️ Clear
+                    </span>
+                </div>
+
+                <div class="text-[8px] font-bold text-purple-400 tracking-wider uppercase mb-1 flex items-center gap-1">
+                    📂 INDEXED PDFS ( 4 ) <span class="text-[6px]">▼</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 bg-white border border-purple-100 rounded-xl p-1 shadow-sm">
+                    <span class="text-slate-400 text-xs px-1">📎</span>
+                    <div class="flex-1 text-[8px] text-slate-400">Ask a question or request enterprise tool...</div>
+                    <div class="w-5 h-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-[8px] shadow-sm">
+                        ➔
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. BACKEND & ENTRY CONTROLS -->
+        <div class="col-span-5 arch-card border-purple-300 p-3.5 flex flex-col justify-around">
+            <div>
+                <div class="flex items-center justify-between border-b border-purple-100 pb-2 mb-3">
+                    <div class="flex items-center text-purple-900 font-bold text-xs">
+                        <span class="badge-num badge-purple">2</span> BACKEND (FastAPI Core Engine)
+                    </div>
+                    <div class="flex gap-1 text-[9px] font-mono">
+                        <span class="bg-purple-100 border border-purple-200 px-2 py-0.5 rounded font-bold text-purple-700">POST /ask</span>
+                        <span class="bg-purple-100 border border-purple-200 px-2 py-0.5 rounded font-bold text-purple-700">POST /upload</span>
+                        <span class="bg-purple-100 border border-purple-200 px-2 py-0.5 rounded font-bold text-purple-700">GET /files</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <div class="bg-rose-50/90 border border-rose-200 p-2.5 rounded-xl">
+                        <div class="text-[10px] font-bold text-rose-800 mb-1 flex items-center">
+                            <span class="badge-num badge-rose !w-3.5 !h-3.5 !text-[8px]">3</span> PII & Injection Guardrail
+                        </div>
+                        <p class="text-[9px] text-slate-600 leading-tight">
+                            Regex ile 11-16 haneli T.C./Kart verilerini & Prompt Injection saldırılarını engeller.
+                        </p>
+                    </div>
+
+                    <div class="bg-purple-50/90 border border-purple-200 p-2.5 rounded-xl">
+                        <div class="text-[10px] font-bold text-purple-800 mb-1 flex items-center">
+                            <span class="badge-num badge-purple !w-3.5 !h-3.5 !text-[8px]">4</span> Otonom Memory Extractor
+                        </div>
+                        <p class="text-[9px] text-slate-600 leading-tight">
+                            <code class="text-purple-700 font-bold">flash-lite</code> ile kullanıcı gerçeklerini ayıklar ve LTM'e kaydeder.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-white p-3 rounded-xl text-center shadow-md my-2">
+                    <p class="text-[10px] font-bold text-purple-300 uppercase tracking-wider">🤖 Asenkron 4-Ajanlı Boru Hattı Yapılandırması</p>
+                    <p class="text-[9px] text-slate-400 font-mono mt-1">Agent 1 (Intent) ➔ Agent 2 (Executor) ➔ Agent 3 (Verifier) ➔ Agent 4 (Inspector)</p>
+                </div>
+            </div>
+
+            <div class="text-[9.5px] text-purple-700 font-mono text-center pt-2 border-t border-purple-100/60">
+                Short-Term Memory (STM): Sliding Window ile son 6 mesaj (<code class="bg-purple-100 px-1 py-0.5 rounded">data.history[-6:]</code>) iletilir.
+            </div>
+        </div>
+
+        <!-- 14. ENTEGRE SİSTEM ARAÇLARI (PANEL NUMARASI YENİ AKIŞA UYARLANDI) -->
+        <div class="col-span-3 arch-card border-emerald-300 p-3.5 flex flex-col justify-start space-y-2">
+            <div class="flex items-center text-emerald-900 font-bold text-xs border-b border-emerald-100 pb-2">
+                <span class="badge-num badge-emerald">14</span> ENTEGRE SİSTEM ARAÇLARI (Tools)
+            </div>
+            <div class="space-y-2 text-[9.5px]">
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200 shadow-sm">
+                    <strong class="text-emerald-800 block text-[10px]">👤 query_user_profile:</strong>
+                    <span class="text-slate-600">Live Registry (<code class="text-emerald-700">user_101</code>, <code class="text-emerald-700">user_102</code>)</span>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200 shadow-sm">
+                    <strong class="text-emerald-800 block text-[10px]">🎟️ get_coupon_discount:</strong>
+                    <span class="text-slate-600">OKAN20, YAZ50, STAJ100</span>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200 shadow-sm">
+                    <strong class="text-emerald-800 block text-[10px]">📂 list_indexed_pdfs:</strong>
+                    <span class="text-slate-600">İndekslenmiş PDF listesi</span>
+                </div>
+                <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200 shadow-sm">
+                    <strong class="text-emerald-800 block text-[10px]">🌐 search_web_free:</strong>
+                    <span class="text-slate-600">DuckDuckGo Web Arama</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORTA KATMAN: YENİLENMİŞ KRONOLOJİK AKIŞ (5 -> 6,7,8,9 -> 10,11,12) -->
+    <div class="grid grid-cols-12 gap-4 mb-4">
+        
+        <!-- INTENT ROUTER VE ARKA ARKAYA ÇALIŞAN AGENT BORU HATTI -->
+        <div class="col-span-8 flex flex-col gap-3">
+            
+            <!-- AGENT 1: INTENT ROUTER KUTUSU -->
+            <div class="arch-card border-amber-300 p-3">
+                <div class="flex items-center justify-between border-b border-amber-200 pb-1.5 mb-2">
+                    <div class="flex items-center text-amber-900 font-bold text-xs">
+                        <span class="badge-num badge-amber">5</span> AGENT 1: INTENT ROUTER (Niyet Analizi & ID Normalization)
+                    </div>
+                    <span class="text-[9px] font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-bold">gemini-3.1-flash-lite</span>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2">
+                    <!-- 6. TOOL INTENT -->
+                    <div class="bg-purple-50 border border-purple-200 p-2 rounded-xl text-[9px]">
+                        <div class="font-bold text-purple-900 mb-0.5 flex items-center">
+                            <span class="badge-num badge-purple !w-3.5 !h-3.5 !text-[8px]">6</span> TOOL INTENT
+                        </div>
+                        <p class="text-slate-600">Kupon, profil sorgulama ve dosya listeleme araçlarını çağırır.</p>
+                    </div>
+
+                    <!-- 7. RAG INTENT -->
+                    <div class="bg-pink-50 border border-pink-200 p-2 rounded-xl text-[9px]">
+                        <div class="font-bold text-pink-900 mb-0.5 flex items-center">
+                            <span class="badge-num badge-pink !w-3.5 !h-3.5 !text-[8px]">7</span> RAG INTENT
+                        </div>
+                        <p class="text-slate-600">Docling ile bölünen PDF parçalarında ChromaDB araması.</p>
+                    </div>
+
+                    <!-- 8. WEB INTENT -->
+                    <div class="bg-blue-50 border border-blue-200 p-2 rounded-xl text-[9px]">
+                        <div class="font-bold text-blue-900 mb-0.5 flex items-center">
+                            <span class="badge-num badge-blue !w-3.5 !h-3.5 !text-[8px]">8</span> WEB INTENT
+                        </div>
+                        <p class="text-slate-600">DuckDuckGo API üzerinden canlı internet araması yapar.</p>
+                    </div>
+
+                    <!-- 9. PARAMETRIC INTENT -->
+                    <div class="bg-slate-100 border border-slate-300 p-2 rounded-xl text-[9px]">
+                        <div class="font-bold text-slate-900 mb-0.5 flex items-center">
+                            <span class="badge-num badge-slate !w-3.5 !h-3.5 !text-[8px]">9</span> PARAMETRIC
+                        </div>
+                        <p class="text-slate-600">Genel sohbet ve model bilgi birikimi ile yanıtlar.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AKIŞ OKU -->
+            <div class="text-center text-xs font-bold text-purple-500 my-0.5">
+                ⬇️ Veri Seçilen Yoldan Toplanarak Sıralı İşleme Boru Hattına Aktarılır ⬇️
+            </div>
+
+            <!-- AGENT 2, 3 VE 4: SIRALI İŞLEME BORU HATTI (10, 11, 12 NUMARALARI GÜNCELLENDİ) -->
+            <div class="arch-card border-purple-300 p-3 bg-purple-50/30">
+                <div class="text-[10px] font-bold text-purple-950 uppercase tracking-wider text-center mb-2 border-b border-purple-100 pb-1">
+                    🔄 ASENKRON SIRALI AGENT İŞLEME BORU HATTI
+                </div>
+                <div class="grid grid-cols-3 gap-2 items-center">
+                    <div class="bg-white border border-amber-300 p-2 rounded-xl text-center shadow-sm">
+                        <div class="text-[10px] font-bold text-amber-900 mb-0.5 flex items-center justify-center">
+                            <span class="badge-num badge-amber !w-3.5 !h-3.5 !text-[8px]">10</span> AGENT 2: Data Executor
+                        </div>
+                        <p class="text-[8.5px] text-slate-500">Verileri toplayıp ham taslak metin (draft) oluşturur.</p>
+                    </div>
+
+                    <div class="bg-white border border-rose-300 p-2 rounded-xl text-center shadow-sm">
+                        <div class="text-[10px] font-bold text-rose-900 mb-0.5 flex items-center justify-center">
+                            <span class="badge-num badge-rose !w-3.5 !h-3.5 !text-[8px]">11</span> AGENT 3: Grounding Verifier
+                        </div>
+                        <p class="text-[8.5px] text-slate-500">LTM ve bağlam doğrulaması yapıp Güven Skoru üretir.</p>
+                    </div>
+
+                    <div class="bg-white border border-purple-300 p-2 rounded-xl text-center shadow-sm">
+                        <div class="text-[10px] font-bold text-purple-900 mb-0.5 flex items-center justify-center">
+                            <span class="badge-num badge-purple !w-3.5 !h-3.5 !text-[8px]">12</span> AGENT 4: Output Inspector
+                        </div>
+                        <p class="text-[8.5px] text-slate-500">Son kalite kontrolü yapar ve JSON yanıtını cilalar.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 15. VERİ KATMANI (ChromaDB) -->
+        <div class="col-span-4 arch-card border-slate-400 p-3.5 flex flex-col justify-start">
+            <div class="flex items-center text-slate-900 font-bold text-xs mb-3 border-b border-slate-200 pb-2">
+                <span class="badge-num badge-slate">15</span> VERİ KATMANI (ChromaDB Vector Storage)
+            </div>
+            <div class="space-y-2.5 text-[9.5px]">
+                <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                    <strong class="text-slate-800 block text-[10px]">📄 rag_documents Koleksiyonu:</strong>
+                    <p class="text-slate-500 mt-1 leading-relaxed">Docling ile bölünen belgenin embed vektörleri (<code class="bg-slate-100 px-1 py-0.5 rounded text-purple-700">gemini-embedding-2</code>).</p>
+                </div>
+                <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                    <strong class="text-slate-800 block text-[10px]">🧠 user_long_term_memory Koleksiyonu:</strong>
+                    <p class="text-slate-500 mt-1 leading-relaxed">Kullanıcının kalıcı kişisel gerçeklerini saklayan otonom LTM veritabanı.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 13. YANIT ÇIKTISI -->
+    <div class="arch-card border-pink-300 p-2.5 mb-4 text-center bg-pink-50/50">
+        <div class="text-[11px] font-bold text-pink-950 flex items-center justify-center">
+            <span class="badge-num badge-pink">13</span> YANITIN KULLANICIYA GÖNDERİLMESİ (StructuredRAGResponse Schema)
+        </div>
+        <p class="text-[9.5px] text-pink-800 font-mono mt-0.5">
+            JSON Return: { "answer": "...", "summary_sentence": "...", "confidence_score": "High/Low", "source": "...", "history": [...] }
+        </p>
+    </div>
+
+    <!-- ALT AÇIKLAMA VE AÇIKLAMA KARTLARI (1'DEN 15'E TAM KRONOLOJİK SIRALI DÖKÜM) -->
+    <div class="grid grid-cols-5 gap-2 text-[9.5px] mb-4">
+        <div class="bg-white p-2 rounded-xl border border-pink-200"><strong>1. FRONTEND:</strong> Web kullanıcı arayüzü. PDF yükleme, soru-cevap, typing indicator ve sohbet geçmişi.</div>
+        <div class="bg-white p-2 rounded-xl border border-purple-200"><strong>2. BACKEND:</strong> FastAPI sunucusu. API endpoint'leri (`/ask`, `/upload`, `/files`) ve boru hattı yönetimi.</div>
+        <div class="bg-white p-2 rounded-xl border border-rose-200"><strong>3. PII GUARDRAIL:</strong> T.C. Kimlik, Kart verisi ve Prompt Injection saldırı filtreleme mekanizması.</div>
+        <div class="bg-white p-2 rounded-xl border border-purple-200"><strong>4. AUTONOMOUS LTM:</strong> Kullanıcı mesajından kalıcı gerçekleri süzüp LTM veritabanına kaydeden yapı.</div>
+        <div class="bg-white p-2 rounded-xl border border-amber-200"><strong>5. AGENT 1 (INTENT):</strong> Soru amacını analiz eder, ID yazım hatalarını düzeltir ve doğru akışa yönlendirir.</div>
+        <div class="bg-white p-2 rounded-xl border border-purple-200"><strong>6. TOOL INTENT:</strong> Kupon indirimi, aktif kuponlar, profil ve dosya listeleme araçları akışı.</div>
+        <div class="bg-white p-2 rounded-xl border border-pink-200"><strong>7. RAG INTENT:</strong> Yüklenen PDF/TXT dokümanları içerisinde semantik vektör arama akışı.</div>
+        <div class="bg-white p-2 rounded-xl border border-blue-200"><strong>8. WEB INTENT:</strong> İnternet üzerinden canlı bilgi getiren DuckDuckGo arama akışı.</div>
+        <div class="bg-white p-2 rounded-xl border border-slate-300"><strong>9. PARAMETRIC:</strong> Doküman veya araç gerektirmeyen genel sohbet ve mantık akışı.</div>
+        <div class="bg-white p-2 rounded-xl border border-amber-200"><strong>10. AGENT 2 (EXECUTOR):</strong> İlgili aracı, RAG vektör aramasını veya web aramasını çalıştırıp taslak yanıt üretir.</div>
+        <div class="bg-white p-2 rounded-xl border border-rose-200"><strong>11. AGENT 3 (VERIFIER):</strong> Üretilen taslağı LTM ve bağlam ile karşılaştırarak doğrular ve Güven Skoru belirler.</div>
+        <div class="bg-white p-2 rounded-xl border border-purple-200"><strong>12. AGENT 4 (INSPECTOR):</strong> Son kalite kontrolünü gerçekleştirir, hatalı reddetmeleri düzeltir ve JSON'u hazırlar.</div>
+        <div class="bg-white p-2 rounded-xl border border-pink-200"><strong>13. YANIT ÇIKTISI:</strong> Yanıt, özet cümle, kaynak ve güven skorunun kullanıcı arayüzüne sunulması.</div>
+        <div class="bg-white p-2 rounded-xl border border-emerald-200"><strong>14. SİSTEM ARAÇLARI:</strong> Canlı veritabanı sorguları, kupon doğrulama ve Docling PDF indeksleme engine'i.</div>
+        <div class="bg-white p-2 rounded-xl border border-slate-300"><strong>15. VERİ KATMANI:</strong> ChromaDB üzerinde saklanan `rag_documents` ve `user_long_term_memory` koleksiyonları.</div>
+    </div>
+
+    <!-- SİSTEM ÖZELLİKLERİ VE AKIŞ ÖZETİ -->
+    <div class="grid grid-cols-2 gap-4 text-[11px]">
+        <div class="bg-white p-3 rounded-2xl border border-pink-200 shadow-sm">
+            <p class="font-bold text-pink-950 mb-1">⚙️ SİSTEMİN TEMEL ÖZELLİKLERİ</p>
+            <ul class="list-disc list-inside space-y-0.5 text-slate-600 text-[10px]">
+                <li><strong>Docling Engine:</strong> PDF/TXT dosyalarını Markdown yapısına çevirip artımlı (incremental) indeksler.</li>
+                <li><strong>4-Ajanlı Boru Hattı:</strong> Intent Router ➔ Data Executor ➔ Grounding Verifier ➔ Output Inspector</li>
+                <li><strong>Çift Katmanlı Güvenlik:</strong> PII Filtreleme (Regex) + System Prompt Injection Engelleme.</li>
+                <li><strong>Gelişmiş Hafıza:</strong> ChromaDB Long-Term Memory (LTM) + Sliding Window Short-Term Memory (STM).</li>
+            </ul>
+        </div>
+        <div class="bg-white p-3 rounded-2xl border border-purple-200 shadow-sm">
+            <p class="font-bold text-purple-950 mb-1">🔄 AKIŞ ÖZETİ</p>
+            <p class="text-slate-600 font-mono text-[9.5px] leading-relaxed">
+                Kullanıcı ➔ Frontend ➔ Backend ➔ Guardrail ➔ LTM Oto-Extract ➔ Agent 1 (Intent Router) ➔ Agent 2 (Tool / RAG / Web / Parametric) ➔ Agent 3 (Verifier) ➔ Agent 4 (Inspector) ➔ Structured JSON Response ➔ Frontend UI
+            </p>
+        </div>
+    </div>
+
+</body>
+</html>
